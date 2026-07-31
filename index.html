@@ -121,10 +121,8 @@
   .modal-body .field input:focus,.modal-body textarea:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.15)}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .modal-foot{padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px;justify-content:flex-end}
-  .modal-sync{display:flex;gap:10px;align-items:flex-start;margin-top:4px;padding:12px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:13px;line-height:1.4}
-  .modal-sync input{margin-top:2px;cursor:pointer}
-  .modal-sync input:disabled{cursor:not-allowed}
-  .modal-sync-note{color:var(--ink-soft);font-size:12px;font-weight:400}
+  .modal-note{margin-top:4px;padding:12px 14px;background:#fff8e6;border:1px solid #f0dca0;border-radius:8px;font-size:12.5px;line-height:1.5;color:#5a4a1a}
+  .modal-note b{color:#3a2f10}
   .hint{font-size:12.5px;color:var(--ink-soft);line-height:1.6;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px;margin-bottom:14px}
   .hint b{color:var(--ink)} .hint ol{margin:8px 0 0;padding-left:18px}
   .hint code{background:#fff;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
@@ -270,7 +268,7 @@
         <div class="field"><label>Your price ($)</label><input id="fPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
         <div class="field"><label>Category</label><input id="fCat" list="catList" placeholder="Generators, Gas Services&hellip;"><datalist id="catList"></datalist></div>
       </div>
-      <label class="modal-sync" id="modalSyncWrap"><input type="checkbox" id="fSync"><span><b>Update the shared team catalog</b><br><span class="modal-sync-note" id="modalSyncNote">Off = saves on this device only. On = everyone on the team gets this change.</span></span></label>
+      <div class="modal-note"><b>This is the master price book.</b> Saving here changes the standard price for this item${''} everywhere. To charge one customer a different price, don't edit here &mdash; just type the new price on that item's line in the estimate (that stays with that quote only).</div>
     </div>
     <div class="modal-foot">
       <button class="btn-ghost" onclick="closeItemModal()">Cancel</button>
@@ -616,13 +614,7 @@ const SEED=[
 function seedCatalog(){return SEED.map(s=>({id:id(),name:s[0],desc:s[1],price:Number(s[2])||0,cat:s[3]}));}
 
 /* ================= STATE ================= */
-const K_CAT='aog_catalog_v4', K_QUOTE='aog_project_v4', K_CFG='aog_cfg_v4', K_LOCAL='aog_localoverrides_v1';
-function loadOverrides(){ return load(K_LOCAL,{}) || {}; }
-function saveOverride(itemId,patch){ const o=loadOverrides(); o[itemId]={...(o[itemId]||{}),...patch}; lput(K_LOCAL,o); }
-function applyOverrides(){
-  const o=loadOverrides();
-  catalog.forEach(it=>{ if(o[it.id]) Object.assign(it,o[it.id]); });
-}
+const K_CAT='aog_catalog_v4', K_QUOTE='aog_project_v4', K_CFG='aog_cfg_v4';
 let catalog=[], project=null, sb=null, online=false, activeCat='All', activeOpt=0;
 const MAX_OPTIONS=5;
 const OPT_NAMES=['Option A','Option B','Option C','Option D','Option E'];
@@ -654,7 +646,6 @@ async function init(){
         catalog=seedCatalog();
         await sb.from('catalog').insert(catalog.map((c,i)=>({id:c.id,name:c.name,desc:c.desc,price:c.price,cat:c.cat,sort:i})));
       }
-      applyOverrides();
       online=true;
       sb.channel('catalog-live').on('postgres_changes',{event:'*',schema:'public',table:'catalog'},reloadCatalog).subscribe();
     }catch(e){online=false;toast('Could not reach team catalog — using local');catalog=load(K_CAT,seedCatalog());}
@@ -668,7 +659,6 @@ async function reloadCatalog(){
   if(!online)return;
   const {data}=await sb.from('catalog').select('*').order('sort',{ascending:true});
   catalog=(data||[]).map(r=>({id:r.id,name:r.name,desc:r.desc,price:Number(r.price)||0,cat:r.cat}));
-  applyOverrides();
   renderTabs(); renderCatalog();
 }
 function paintStatus(){
@@ -791,7 +781,6 @@ async function pushPriceToCatalog(itemId,price){
   if(cat) cat.price=price;               // update local copy
   try{
     await sb.from('catalog').update({price}).eq('id',itemId);
-    const o=loadOverrides(); if(o[itemId]){ delete o[itemId]; lput(K_LOCAL,o); } // shared now matches
   }
   catch(e){ toast('Could not sync price to catalog'); }
   renderCatalog();
@@ -853,20 +842,6 @@ function openItemModal(editId){
   document.getElementById('modalTitle').textContent=editId?'Edit catalog item':'Add catalog item';
   const it=editId?catalog.find(c=>c.id===editId):{name:'',desc:'',price:'',cat:(activeCat!=='All'?activeCat:'')};
   setv('fName',it.name);setv('fDesc',it.desc||'');setv('fPrice',it.price===0?'':it.price);setv('fCat',it.cat||'');
-  // Sync toggle: relevant only for EDITS while online. New items always go to the shared catalog.
-  const wrap=document.getElementById('modalSyncWrap');
-  const box=document.getElementById('fSync');
-  const note=document.getElementById('modalSyncNote');
-  box.checked=false;
-  if(!online){
-    wrap.style.display='none'; // local mode: no team catalog to sync to
-  } else if(!editId){
-    wrap.style.display='flex'; box.checked=true; box.disabled=true;
-    note.textContent='New items are always added to the shared team catalog.';
-  } else {
-    wrap.style.display='flex'; box.disabled=false;
-    note.textContent='Off = saves on this device only. On = everyone on the team gets this change.';
-  }
   document.getElementById('itemModal').classList.add('on');
   setTimeout(()=>document.getElementById('fName').focus(),50);
 }
@@ -875,24 +850,13 @@ async function saveItem(){
   const name=val('fName').trim();if(!name){toast('Give the item a name');return;}
   const data={name,desc:val('fDesc').trim(),price:parseFloat(val('fPrice'))||0,cat:val('fCat').trim()||'Uncategorized'};
   const eid=val('editId');
-  const doSync=document.getElementById('fSync').checked;
   if(eid){
     Object.assign(catalog.find(c=>c.id===eid),data);
-    if(online && doSync){
-      await sb.from('catalog').update(data).eq('id',eid);
-      // synced: this is now the shared value, so drop any local override for it
-      const o=loadOverrides(); delete o[eid]; lput(K_LOCAL,o);
-      toast('Item updated for the whole team');
-    } else if(online){
-      // device-only edit: persist as a local override so it survives reloads
-      saveOverride(eid,data);
-      toast('Item updated on this device only');
-    } else {
-      toast('Item updated');
-    }
+    if(online){ await sb.from('catalog').update(data).eq('id',eid); toast('Catalog price updated'); }
+    else { toast('Catalog price updated'); }
   }else{
     const rec={id:id(),...data};catalog.push(rec);
-    if(online)await sb.from('catalog').insert([{...rec,sort:catalog.length}]); // new items always go to team
+    if(online)await sb.from('catalog').insert([{...rec,sort:catalog.length}]);
     toast('Item added');
   }
   persistCat();closeItemModal();renderTabs();renderCatalog();renderQuote();
