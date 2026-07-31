@@ -123,6 +123,13 @@
   .modal-foot{padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px;justify-content:flex-end}
   .modal-note{margin-top:4px;padding:12px 14px;background:#fff8e6;border:1px solid #f0dca0;border-radius:8px;font-size:12.5px;line-height:1.5;color:#5a4a1a}
   .modal-note b{color:#3a2f10}
+  .saved-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+  .saved-row:hover{border-color:var(--ink)}
+  .saved-main{flex:1;min-width:0}
+  .saved-name{font-weight:700;font-size:14px}
+  .saved-meta{font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .saved-actions{display:flex;gap:6px}
+  .saved-empty{padding:30px 12px;text-align:center;color:var(--ink-soft)}
   .hint{font-size:12.5px;color:var(--ink-soft);line-height:1.6;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px;margin-bottom:14px}
   .hint b{color:var(--ink)} .hint ol{margin:8px 0 0;padding-left:18px}
   .hint code{background:#fff;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
@@ -201,10 +208,13 @@
     <div class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">Local mode</span></div>
     <div class="head-actions">
       <button class="btn-ghost btn-sm" onclick="openConnect()">Connect team &#9881;</button>
+      <button class="btn-ghost btn-sm" onclick="openSaved()">&#128194; Saved proposals</button>
+      <button class="btn-ghost btn-sm" onclick="newProposalPrompt()">+ New proposal</button>
       <button class="btn-ghost btn-sm" onclick="exportData()">Back up</button>
       <button class="btn-ghost btn-sm" onclick="document.getElementById('importFile').click()">Restore</button>
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
       <button class="btn btn-sm" onclick="window.print()">Print proposal</button>
+      <button class="btn-amber btn-sm" onclick="saveProposalNamed()">&#128190; Save proposal</button>
       <button class="btn-amber btn-sm" onclick="openItemModal()">+ Add item</button>
     </div>
   </div>
@@ -296,6 +306,18 @@
       <button class="btn-danger" onclick="disconnect()" id="disconnectBtn" style="margin-right:auto;display:none">Disconnect</button>
       <button class="btn-ghost" onclick="closeConnect()">Cancel</button>
       <button class="btn-amber" onclick="saveConnect()">Save &amp; go online</button>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="savedModal">
+  <div class="modal wide">
+    <div class="modal-head">Saved proposals</div>
+    <div class="modal-body">
+      <input id="savedSearch" placeholder="Search by customer name or proposal #&hellip;" oninput="renderSavedList()" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:12px">
+      <div id="savedList" style="max-height:52vh;overflow:auto"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="closeSaved()">Close</button>
     </div>
   </div>
 </div>
@@ -619,7 +641,7 @@ let catalog=[], project=null, sb=null, online=false, activeCat='All', activeOpt=
 const MAX_OPTIONS=5;
 const OPT_NAMES=['Option A','Option B','Option C','Option D','Option E'];
 function newOption(name){return {name:name||'Option A',recommended:false,lines:[],discType:'pct',discVal:0};}
-function newProject(){return {customer:'',address:'',number:'',date:today(),showCompare:true,showDetail:true,options:[newOption('Option A')]};}
+function newProject(){return {id:'p'+Math.random().toString(36).slice(2,10),customer:'',address:'',number:'',date:today(),updated:Date.now(),showCompare:true,showDetail:true,options:[newOption('Option A')]};}
 function curOpt(){return project.options[activeOpt];}
 let cfg = load(K_CFG,{url:SUPABASE_URL,key:SUPABASE_KEY});
 function load(k,fb){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch(e){return fb;}}
@@ -635,6 +657,7 @@ function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>'
 async function init(){
   project = load(K_QUOTE,null) || newProject();
   if(!project.options || !project.options.length) project = newProject();
+  if(!project.id) project.id='p'+Math.random().toString(36).slice(2,10);
   activeOpt = Math.min(activeOpt, project.options.length-1);
   if(cfg.url && cfg.key && window.supabase){
     try{
@@ -790,7 +813,107 @@ function readProjectMeta(){
   project.customer=val('qCustomer');project.address=val('qAddress');project.number=val('qNumber');project.date=val('qDate');
 }
 function readDisc(){ const o=curOpt(); o.discType=val('discType'); o.discVal=parseFloat(val('discVal'))||0; }
-function saveProject(){ readProjectMeta(); lput(K_QUOTE,project); }
+function saveProject(){ readProjectMeta(); project.updated=Date.now(); lput(K_QUOTE,project); scheduleCloudSave(); }
+
+/* ---- Autosave to shared cloud (debounced) ---- */
+let cloudTimer=null;
+function scheduleCloudSave(){
+  if(!online) return;
+  // only autosave once it has something worth saving (a customer name or any line)
+  const hasContent = (project.customer||'').trim() || project.options.some(o=>o.lines.length);
+  if(!hasContent) return;
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(cloudSaveNow, 1500);
+}
+async function cloudSaveNow(){
+  if(!online) return;
+  try{
+    await sb.from('proposals').upsert({
+      id: project.id,
+      customer: project.customer||'',
+      number: project.number||'',
+      updated: new Date().toISOString(),
+      data: project
+    });
+  }catch(e){ /* silent; local copy still safe */ }
+}
+function newProposalPrompt(){
+  const hasContent = (project.customer||'').trim() || project.options.some(o=>o.lines.length);
+  if(hasContent && !confirm('Start a new blank proposal? Your current one is already saved and can be reopened from Saved proposals.')) return;
+  cloudSaveNow(); // make sure current is stored before leaving it
+  project = newProject(); activeOpt=0; lput(K_QUOTE,project);
+  fillProjectMeta(); renderOptTabs(); renderQuote(); toast('New proposal started');
+}
+async function saveProposalNamed(){
+  const name=prompt('Save this proposal as (customer name):', project.customer||'');
+  if(name===null) return;
+  if(name.trim()) project.customer=name.trim();
+  readProjectMeta(); project.updated=Date.now(); lput(K_QUOTE,project);
+  fillProjectMeta();
+  if(online){ await cloudSaveNow(); toast('Proposal saved for the team'); }
+  else { toast('Proposal saved on this device'); }
+}
+
+/* ---- Saved proposals list ---- */
+let savedCache=[];
+async function openSaved(){
+  document.getElementById('savedModal').classList.add('on');
+  document.getElementById('savedList').innerHTML='<div class="saved-empty">Loading&hellip;</div>';
+  if(online){
+    try{
+      const {data,error}=await sb.from('proposals').select('id,customer,number,updated,data').order('updated',{ascending:false});
+      if(error) throw error;
+      savedCache=data||[];
+    }catch(e){ savedCache=[]; document.getElementById('savedList').innerHTML='<div class="saved-empty">Could not load saved proposals.<br>Make sure the proposals table exists in Supabase.</div>'; return; }
+  } else {
+    // local fallback: just the current one
+    savedCache = [{id:project.id,customer:project.customer,number:project.number,updated:new Date(project.updated||Date.now()).toISOString(),data:project}];
+  }
+  renderSavedList();
+}
+function closeSaved(){ document.getElementById('savedModal').classList.remove('on'); }
+function renderSavedList(){
+  const q=(val('savedSearch')||'').toLowerCase();
+  const rows=savedCache.filter(r=>{
+    const hay=((r.customer||'')+' '+(r.number||'')).toLowerCase();
+    return !q || hay.includes(q);
+  });
+  const list=document.getElementById('savedList');
+  if(!rows.length){ list.innerHTML='<div class="saved-empty">No saved proposals'+(q?' match your search':' yet')+'.</div>'; return; }
+  list.innerHTML=rows.map(r=>{
+    const d=r.data||{};
+    const opts=(d.options||[]).length;
+    const when=r.updated?new Date(r.updated).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+    let total=0;
+    (d.options||[]).forEach(o=>{ const s=(o.lines||[]).reduce((x,l)=>x+l.price*l.qty,0); let ds=o.discType==='pct'?s*((o.discVal||0)/100):(o.discVal||0); total=Math.max(total,s-Math.min(ds,s)); });
+    return `<div class="saved-row">
+      <div class="saved-main">
+        <div class="saved-name">${esc(r.customer||'(no name)')}${r.number?' &middot; #'+esc(r.number):''}</div>
+        <div class="saved-meta">${opts} option${opts===1?'':'s'} &middot; up to ${money(total)} &middot; saved ${when}</div>
+      </div>
+      <div class="saved-actions">
+        <button class="btn-amber btn-sm" onclick="openProposal('${r.id}')">Open</button>
+        <button class="btn-danger btn-sm" onclick="deleteProposal('${r.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function openProposal(pid){
+  const r=savedCache.find(x=>x.id===pid); if(!r){toast('Not found');return;}
+  cloudSaveNow(); // save whatever we were on
+  project = r.data && r.data.options ? r.data : newProject();
+  if(!project.id) project.id=pid;
+  activeOpt=0; lput(K_QUOTE,project);
+  fillProjectMeta(); renderOptTabs(); renderQuote();
+  closeSaved(); toast('Opened '+(project.customer||'proposal'));
+}
+async function deleteProposal(pid){
+  const r=savedCache.find(x=>x.id===pid);
+  if(!confirm('Delete the saved proposal for "'+((r&&r.customer)||'this customer')+'"? This cannot be undone.'))return;
+  if(online){ try{ await sb.from('proposals').delete().eq('id',pid); }catch(e){} }
+  savedCache=savedCache.filter(x=>x.id!==pid);
+  renderSavedList(); toast('Proposal deleted');
+}
 function optTotals(o){
   const sub=o.lines.reduce((s,l)=>s+l.price*l.qty,0);
   let disc=o.discType==='pct'?sub*((o.discVal||0)/100):(o.discVal||0); disc=Math.min(disc,sub);
@@ -1018,7 +1141,8 @@ window.addEventListener('beforeprint',buildPrintDoc);
 let tT;function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),1600);}
 document.getElementById('itemModal').addEventListener('click',e=>{if(e.target.id==='itemModal')closeItemModal();});
 document.getElementById('connectModal').addEventListener('click',e=>{if(e.target.id==='connectModal')closeConnect();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();}});
+document.getElementById('savedModal').addEventListener('click',e=>{if(e.target.id==='savedModal')closeSaved();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();}});
 init();
 </script>
 </body>
