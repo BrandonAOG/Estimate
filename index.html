@@ -237,6 +237,8 @@
           <div class="field full"><label>Customer address</label><input id="qAddress" oninput="saveProject()" placeholder="Street, City, FL"></div>
           <div class="field"><label>Proposal #</label><input id="qNumber" oninput="saveProject()" placeholder="7309"></div>
           <div class="field"><label>Date</label><input id="qDate" oninput="saveProject()"></div>
+          <div class="field"><label>Your name (estimator)</label><input id="qEstName" oninput="saveEstimator()" placeholder="e.g. Johnny"></div>
+          <div class="field"><label>Your phone</label><input id="qEstPhone" oninput="saveEstimator()" placeholder="(239) 839-3553"></div>
         </div>
         <div class="opt-tabs" id="optTabs"></div>
         <div class="opt-namebar" id="optNamebar"></div>
@@ -676,7 +678,7 @@ async function init(){
     catalog=load(K_CAT,null)||seedCatalog();
     if(!load(K_CAT,null)) lput(K_CAT,catalog);
   }
-  paintStatus(); fillProjectMeta(); renderOptTabs(); renderTabs(); renderCatalog(); renderQuote();
+  paintStatus(); fillEstimator(); fillProjectMeta(); renderOptTabs(); renderTabs(); renderCatalog(); renderQuote();
 }
 async function reloadCatalog(){
   if(!online)return;
@@ -812,6 +814,10 @@ function removeLine(i){curOpt().lines.splice(i,1);saveProject();renderQuote();}
 function readProjectMeta(){
   project.customer=val('qCustomer');project.address=val('qAddress');project.number=val('qNumber');project.date=val('qDate');
 }
+const K_EST='aog_estimator_v1';
+function saveEstimator(){ lput(K_EST,{name:val('qEstName'),phone:val('qEstPhone')}); }
+function fillEstimator(){ const e=load(K_EST,{name:'',phone:''})||{name:'',phone:''}; setv('qEstName',e.name||''); setv('qEstPhone',e.phone||''); }
+function estimator(){ return load(K_EST,{name:'',phone:''})||{name:'',phone:''}; }
 function readDisc(){ const o=curOpt(); o.discType=val('discType'); o.discVal=parseFloat(val('discVal'))||0; }
 function saveProject(){ readProjectMeta(); project.updated=Date.now(); lput(K_QUOTE,project); scheduleCloudSave(); }
 
@@ -1093,6 +1099,12 @@ function buildPrintDoc(){
       </div>`;
     }).join('');
   }
+  const est=estimator();
+  const estName=(est.name||'').trim();
+  const estPhone=(est.phone||'').trim();
+  const callLine = (estName||estPhone)
+    ? `Call ${estName?esc(estName):'us'}${estPhone?' at '+esc(estPhone):''} or reply to this proposal and we'll get you on the schedule.`
+    : `Call us at (239) 839-3553 or reply to this proposal and we'll get you on the schedule.`;
   document.getElementById('printDoc').innerHTML=`
     <div class="p-head">
       <div>
@@ -1132,7 +1144,7 @@ function buildPrintDoc(){
     </div>
     <div class="p-foot">
       <div class="big">Ready to keep your home always on?</div>
-      <div class="sm">Call Johnny at (239) 839-3553 or reply to this proposal and we'll get you on the schedule.</div>
+      <div class="sm">${callLine}</div>
     </div>`;
 }
 window.addEventListener('beforeprint',buildPrintDoc);
