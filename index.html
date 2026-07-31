@@ -83,6 +83,13 @@
   .line-name{flex:1;min-width:0}
   .line-name .n{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .line-name .p{font-size:11px;color:var(--ink-soft)}
+  .price-edit{width:64px;border:1px solid var(--line);border-radius:5px;padding:2px 5px;font-size:11px;font-family:inherit;font-variant-numeric:tabular-nums}
+  .price-edit:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 2px rgba(244,180,0,.15)}
+  .price-edit.changed{border-color:var(--amber-deep);background:#fff8e6;font-weight:700;color:var(--ink)}
+  .ovr{color:var(--amber-deep);font-weight:700}
+  .sync-box{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-soft);cursor:pointer;user-select:none}
+  .sync-box input{cursor:pointer;margin:0}
+  .sync-box input:disabled{cursor:not-allowed}
   .qty{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;overflow:hidden}
   .qty button{background:var(--bg);border:none;width:26px;height:28px;padding:0;font-size:15px;color:var(--ink);border-radius:0}
   .qty button:hover{background:var(--line)}
@@ -114,6 +121,10 @@
   .modal-body .field input:focus,.modal-body textarea:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.15)}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .modal-foot{padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px;justify-content:flex-end}
+  .modal-sync{display:flex;gap:10px;align-items:flex-start;margin-top:4px;padding:12px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:13px;line-height:1.4}
+  .modal-sync input{margin-top:2px;cursor:pointer}
+  .modal-sync input:disabled{cursor:not-allowed}
+  .modal-sync-note{color:var(--ink-soft);font-size:12px;font-weight:400}
   .hint{font-size:12.5px;color:var(--ink-soft);line-height:1.6;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px;margin-bottom:14px}
   .hint b{color:var(--ink)} .hint ol{margin:8px 0 0;padding-left:18px}
   .hint code{background:#fff;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
@@ -259,6 +270,7 @@
         <div class="field"><label>Your price ($)</label><input id="fPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
         <div class="field"><label>Category</label><input id="fCat" list="catList" placeholder="Generators, Gas Services&hellip;"><datalist id="catList"></datalist></div>
       </div>
+      <label class="modal-sync" id="modalSyncWrap"><input type="checkbox" id="fSync"><span><b>Update the shared team catalog</b><br><span class="modal-sync-note" id="modalSyncNote">Off = saves on this device only. On = everyone on the team gets this change.</span></span></label>
     </div>
     <div class="modal-foot">
       <button class="btn-ghost" onclick="closeItemModal()">Cancel</button>
@@ -604,7 +616,13 @@ const SEED=[
 function seedCatalog(){return SEED.map(s=>({id:id(),name:s[0],desc:s[1],price:Number(s[2])||0,cat:s[3]}));}
 
 /* ================= STATE ================= */
-const K_CAT='aog_catalog_v4', K_QUOTE='aog_project_v4', K_CFG='aog_cfg_v4';
+const K_CAT='aog_catalog_v4', K_QUOTE='aog_project_v4', K_CFG='aog_cfg_v4', K_LOCAL='aog_localoverrides_v1';
+function loadOverrides(){ return load(K_LOCAL,{}) || {}; }
+function saveOverride(itemId,patch){ const o=loadOverrides(); o[itemId]={...(o[itemId]||{}),...patch}; lput(K_LOCAL,o); }
+function applyOverrides(){
+  const o=loadOverrides();
+  catalog.forEach(it=>{ if(o[it.id]) Object.assign(it,o[it.id]); });
+}
 let catalog=[], project=null, sb=null, online=false, activeCat='All', activeOpt=0;
 const MAX_OPTIONS=5;
 const OPT_NAMES=['Option A','Option B','Option C','Option D','Option E'];
@@ -636,6 +654,7 @@ async function init(){
         catalog=seedCatalog();
         await sb.from('catalog').insert(catalog.map((c,i)=>({id:c.id,name:c.name,desc:c.desc,price:c.price,cat:c.cat,sort:i})));
       }
+      applyOverrides();
       online=true;
       sb.channel('catalog-live').on('postgres_changes',{event:'*',schema:'public',table:'catalog'},reloadCatalog).subscribe();
     }catch(e){online=false;toast('Could not reach team catalog — using local');catalog=load(K_CAT,seedCatalog());}
@@ -649,6 +668,7 @@ async function reloadCatalog(){
   if(!online)return;
   const {data}=await sb.from('catalog').select('*').order('sort',{ascending:true});
   catalog=(data||[]).map(r=>({id:r.id,name:r.name,desc:r.desc,price:Number(r.price)||0,cat:r.cat}));
+  applyOverrides();
   renderTabs(); renderCatalog();
 }
 function paintStatus(){
@@ -750,6 +770,32 @@ function addLine(itemId){
 }
 function setQty(i,v){curOpt().lines[i].qty=Math.max(1,parseInt(v)||1);saveProject();renderQuote();}
 function bump(i,d){setQty(i,(curOpt().lines[i].qty||1)+d);}
+function setPrice(i,v){
+  const p=Math.max(0,parseFloat(v)||0);
+  const l=curOpt().lines[i];
+  l.price=p;
+  saveProject();
+  // if this line is flagged to sync, push the new price to the shared catalog now
+  if(l.sync && online){ pushPriceToCatalog(l.itemId,p); }
+  renderQuote();
+}
+function toggleSync(i,on){
+  const l=curOpt().lines[i];
+  l.sync=on; saveProject();
+  if(on && online){ pushPriceToCatalog(l.itemId,l.price); toast('Price synced to shared catalog'); }
+  renderQuote();
+}
+async function pushPriceToCatalog(itemId,price){
+  if(!online||!itemId) return;
+  const cat=catalog.find(c=>c.id===itemId);
+  if(cat) cat.price=price;               // update local copy
+  try{
+    await sb.from('catalog').update({price}).eq('id',itemId);
+    const o=loadOverrides(); if(o[itemId]){ delete o[itemId]; lput(K_LOCAL,o); } // shared now matches
+  }
+  catch(e){ toast('Could not sync price to catalog'); }
+  renderCatalog();
+}
 function removeLine(i){curOpt().lines.splice(i,1);saveProject();renderQuote();}
 function readProjectMeta(){
   project.customer=val('qCustomer');project.address=val('qAddress');project.number=val('qNumber');project.date=val('qDate');
@@ -767,13 +813,20 @@ function renderQuote(){
   const wrap=document.getElementById('quoteLines');
   document.getElementById('lineCount').textContent=o.lines.length+' line'+(o.lines.length===1?'':'s');
   if(!o.lines.length){wrap.innerHTML='<div class="empty"><b>Nothing in this option yet</b>Tap catalog items to add them to '+esc(o.name||'this option')+'.</div>';}
-  else{wrap.innerHTML=o.lines.map((l,i)=>`
+  else{wrap.innerHTML=o.lines.map((l,i)=>{
+    const cat=catalog.find(c=>c.id===l.itemId);
+    const overridden = cat && Number(cat.price)!==Number(l.price);
+    return `
     <div class="line">
-      <div class="line-name"><div class="n">${esc(l.name)}</div><div class="p">${money(l.price)} each</div></div>
+      <div class="line-name">
+        <div class="n">${esc(l.name)}</div>
+        <div class="p">$<input class="price-edit${overridden?' changed':''}" value="${(Number(l.price)||0).toFixed(2)}" onchange="setPrice(${i},this.value)" title="Price for this estimate only"> each${overridden?' <span class="ovr">(custom)</span>':''}</div>
+      </div>
       <div class="qty"><button onclick="bump(${i},-1)">&minus;</button><input value="${l.qty}" onchange="setQty(${i},this.value)"><button onclick="bump(${i},1)">+</button></div>
       <div class="line-total">${money(l.price*l.qty)}</div>
+      <label class="sync-box" title="${online?'Also update this price in the shared catalog for everyone':'Sync is only available in Team online mode'}"><input type="checkbox" ${l.sync?'checked':''} ${!online?'disabled':''} onchange="toggleSync(${i},this.checked)"><span>Sync</span></label>
       <button class="line-x" title="Remove" onclick="removeLine(${i})">&times;</button>
-    </div>`).join('');}
+    </div>`;}).join('');}
   const t=optTotals(o);
   document.getElementById('subtotal').textContent=money(t.sub);
   document.getElementById('discAmt').innerHTML='&ndash;'+money(t.disc);
@@ -800,6 +853,20 @@ function openItemModal(editId){
   document.getElementById('modalTitle').textContent=editId?'Edit catalog item':'Add catalog item';
   const it=editId?catalog.find(c=>c.id===editId):{name:'',desc:'',price:'',cat:(activeCat!=='All'?activeCat:'')};
   setv('fName',it.name);setv('fDesc',it.desc||'');setv('fPrice',it.price===0?'':it.price);setv('fCat',it.cat||'');
+  // Sync toggle: relevant only for EDITS while online. New items always go to the shared catalog.
+  const wrap=document.getElementById('modalSyncWrap');
+  const box=document.getElementById('fSync');
+  const note=document.getElementById('modalSyncNote');
+  box.checked=false;
+  if(!online){
+    wrap.style.display='none'; // local mode: no team catalog to sync to
+  } else if(!editId){
+    wrap.style.display='flex'; box.checked=true; box.disabled=true;
+    note.textContent='New items are always added to the shared team catalog.';
+  } else {
+    wrap.style.display='flex'; box.disabled=false;
+    note.textContent='Off = saves on this device only. On = everyone on the team gets this change.';
+  }
   document.getElementById('itemModal').classList.add('on');
   setTimeout(()=>document.getElementById('fName').focus(),50);
 }
@@ -808,16 +875,27 @@ async function saveItem(){
   const name=val('fName').trim();if(!name){toast('Give the item a name');return;}
   const data={name,desc:val('fDesc').trim(),price:parseFloat(val('fPrice'))||0,cat:val('fCat').trim()||'Uncategorized'};
   const eid=val('editId');
+  const doSync=document.getElementById('fSync').checked;
   if(eid){
     Object.assign(catalog.find(c=>c.id===eid),data);
-    if(online)await sb.from('catalog').update(data).eq('id',eid);
-    toast('Item updated');
+    if(online && doSync){
+      await sb.from('catalog').update(data).eq('id',eid);
+      // synced: this is now the shared value, so drop any local override for it
+      const o=loadOverrides(); delete o[eid]; lput(K_LOCAL,o);
+      toast('Item updated for the whole team');
+    } else if(online){
+      // device-only edit: persist as a local override so it survives reloads
+      saveOverride(eid,data);
+      toast('Item updated on this device only');
+    } else {
+      toast('Item updated');
+    }
   }else{
     const rec={id:id(),...data};catalog.push(rec);
-    if(online)await sb.from('catalog').insert([{...rec,sort:catalog.length}]);
+    if(online)await sb.from('catalog').insert([{...rec,sort:catalog.length}]); // new items always go to team
     toast('Item added');
   }
-  persistCat();closeItemModal();renderTabs();renderCatalog();
+  persistCat();closeItemModal();renderTabs();renderCatalog();renderQuote();
 }
 async function deleteItem(itemId){
   const it=catalog.find(c=>c.id===itemId);
