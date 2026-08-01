@@ -1,7 +1,7 @@
 // Always On Quote Builder — service worker
 // Version + release notes shown to the user in the update banner.
-const SW_VERSION = '2.1.2';
-const SW_NOTES = 'Fixes the delete confirmation instruction so it always displays.';
+const SW_VERSION = '2.1.5';
+const SW_NOTES = 'Footer version now comes straight from this app\'s service worker.';
 const CACHE = 'aog-shell-v' + SW_VERSION;
 
 self.addEventListener('install', e => {
