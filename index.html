@@ -1231,9 +1231,23 @@ function renderOptTabs(){
   document.getElementById('optNamebar').innerHTML=`
     <input id="optName" value="${esc(o.name||'')}" placeholder="Name this option (e.g. 26KW Whole-Home)" oninput="renameOpt(this.value)">
     <button class="opt-rec-btn ${o.recommended?'on':''}" onclick="toggleRec()" title="Mark as recommended">&#9733; ${o.recommended?'Recommended':'Recommend'}</button>
+    <button class="opt-rec-btn" onclick="duplicateOption()" ${project.options.length>=MAX_OPTIONS?'disabled':''} title="Copy this option's lines into a new option">&#10697; Duplicate</button>
     ${project.options.length>1?`<button class="opt-del-btn" onclick="delOption()" title="Delete this option">&#128465;</button>`:''}`;
 }
 function switchOpt(i){ activeOpt=i; renderOptTabs(); fillDisc(); renderQuote(); }
+function duplicateOption(){
+  if(project.options.length>=MAX_OPTIONS){ toast('Option limit reached'); return; }
+  const src=curOpt();
+  const copy=JSON.parse(JSON.stringify(src));
+  copy.lines=(copy.lines||[]).map(l=>({...l, id:id()}));   // fresh line ids
+  copy.recommended=false;                                   // only one star per proposal
+  const base=OPT_NAMES[project.options.length]||('Option '+(project.options.length+1));
+  copy.name=(src.name&&src.name.trim())?src.name.trim()+' (copy)':base;
+  project.options.push(copy);
+  activeOpt=project.options.length-1;
+  saveProject(); renderOptTabs(); fillDisc(); renderQuote();
+  toast('Duplicated - now edit this copy');
+}
 function addOption(){
   if(project.options.length>=MAX_OPTIONS) return;
   const name=OPT_NAMES[project.options.length]||('Option '+(project.options.length+1));
