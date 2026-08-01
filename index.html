@@ -1403,6 +1403,15 @@ function scheduleCloudSave(){
 async function cloudSaveNow(){
   if(!online) return;
   try{
+    // Customer-owned fields live in the database and must survive staff saves:
+    // views (link opens), approval (signature!), decline. Pull them in before upserting
+    // so a stale local copy can never erase what the customer did.
+    try{
+      const {data:ex}=await sb.from('proposals').select('data').eq('id',project.id).maybeSingle();
+      if(ex&&ex.data){
+        ['views','approval','decline'].forEach(k=>{ if(ex.data[k]) project[k]=ex.data[k]; });
+      }
+    }catch(e){}
     await sb.from('proposals').upsert({
       id: project.id,
       customer: project.customer||'',
