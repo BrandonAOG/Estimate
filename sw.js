@@ -1,8 +1,12 @@
-// Always On Quote Builder — service worker (offline shell + fast start)
-const CACHE = 'aog-shell-v1';
+// Always On Quote Builder — service worker
+// Version + release notes shown to the user in the update banner.
+const SW_VERSION = '2.0.0';
+const SW_NOTES = 'Installable app with offline mode, mobile action bar, swipe-to-delete with confirmation, safer shared-catalog deletes, logo and proposal upgrades.';
+const CACHE = 'aog-shell-v' + SW_VERSION;
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./'])).then(() => self.skipWaiting()));
+  // NOTE: no skipWaiting here — the new version waits until the user taps Install.
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./'])));
 });
 
 self.addEventListener('activate', e => {
@@ -13,11 +17,16 @@ self.addEventListener('activate', e => {
   );
 });
 
+self.addEventListener('message', e => {
+  const d = e.data || {};
+  if (d.type === 'SKIP_WAITING') self.skipWaiting();
+  if (d.type === 'GET_VERSION' && e.ports && e.ports[0]) {
+    e.ports[0].postMessage({ version: SW_VERSION, notes: SW_NOTES });
+  }
+});
+
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-
-  // App opens (any route incl. ?approve= / ?reset): network first so updates
-  // arrive immediately, cached shell as offline fallback.
   if (e.request.mode === 'navigate') {
     e.respondWith(
       fetch(e.request).then(r => {
@@ -28,8 +37,6 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-
-  // Same-origin static assets (icons/manifest): cache first.
   if (url.origin === location.origin && /\.(png|webmanifest)$/.test(url.pathname)) {
     e.respondWith(
       caches.match(e.request).then(m => m || fetch(e.request).then(r => {
@@ -39,5 +46,4 @@ self.addEventListener('fetch', e => {
       }))
     );
   }
-  // Everything else (Supabase, CDNs) goes straight to the network — never cached.
 });
