@@ -569,7 +569,16 @@
   <div class="modal wide">
     <div class="modal-head">Saved proposals</div>
     <div class="modal-body">
-      <input id="savedSearch" placeholder="Search by customer name or proposal #&hellip;" oninput="renderSavedList()" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:12px">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <input id="savedSearch" placeholder="Search by customer name or proposal #&hellip;" oninput="renderSavedList()" style="flex:1;min-width:160px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit">
+        <select id="savedSort" onchange="renderSavedList()" style="padding:10px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)">
+          <option value="new">Newest first</option>
+          <option value="old">Oldest first</option>
+          <option value="name">Last name A&ndash;Z</option>
+          <option value="status">Approved first</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportBackup()" title="Download a backup file of all proposals and your catalog">Export backup</button>
+      </div>
       <div id="savedList" style="max-height:52vh;overflow:auto"></div>
     </div>
     <div class="modal-foot">
@@ -1461,7 +1470,7 @@ function renderApprovalView(pid){
         </div>
       </div>
       <div class="av-approve">
-        <div class="terms">By tapping Approve, you agree to move forward with the selected option and authorize Always On Generators to schedule your installation, subject to the payment terms and installation terms in this proposal.</div>
+        <div class="terms">By tapping Approve, you agree to move forward with the selected option and authorize Always On Generators to assign your dedicated site project manager and begin next steps, subject to the payment terms and installation terms in this proposal.</div>
         <button class="btn-approve" id="avApproveBtn" disabled onclick="submitApproval('${pid}')">Approve this proposal</button>
         <button class="btn-decline" id="avDeclineBtn" onclick="showDecline()">Not ready to approve</button>
         <div id="declineForm" class="decline-form">
@@ -1624,6 +1633,26 @@ async function saveProposalNamed(){
 
 /* ---- Saved proposals list ---- */
 let savedCache=[];
+async function exportBackup(){
+  try{
+    let props=savedCache;
+    if(online){ const {data,error}=await sb.from('proposals').select('*'); if(!error&&data) props=data; }
+    const backup={
+      app:'Always On Quote Builder', version:APP_VERSION,
+      exported:new Date().toISOString(),
+      proposals:props,
+      catalog:catalog
+    };
+    const blob=new Blob([JSON.stringify(backup,null,1)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    const d=new Date(), pad=n=>String(n).padStart(2,'0');
+    a.download='AlwaysOn_Backup_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    toast('Backup downloaded - '+props.length+' proposal'+(props.length===1?'':'s')+' + catalog');
+  }catch(e){ toast('Backup failed - try again'); }
+}
 async function openSaved(){
   document.getElementById('savedModal').classList.add('on');
   document.getElementById('savedList').innerHTML='<div class="saved-empty">Loading&hellip;</div>';
@@ -1645,6 +1674,15 @@ function renderSavedList(){
   const rows=savedCache.filter(r=>{
     const hay=((r.customer||'')+' '+(r.number||'')).toLowerCase();
     return !q || hay.includes(q);
+  });
+  const lastName=r=>{const p=(r.customer||'').trim().split(/\s+/);return (p[p.length-1]||'').toLowerCase();};
+  const st=r=>{const d=r.data||{};return d.approval&&d.approval.approved?0:(d.decline&&d.decline.declined?2:1);};
+  const mode=(document.getElementById('savedSort')||{}).value||'new';
+  rows.sort((a,b)=>{
+    if(mode==='old')  return new Date(a.updated||0)-new Date(b.updated||0);
+    if(mode==='name') return lastName(a).localeCompare(lastName(b))||(a.customer||'').localeCompare(b.customer||'');
+    if(mode==='status') return st(a)-st(b)||new Date(b.updated||0)-new Date(a.updated||0);
+    return new Date(b.updated||0)-new Date(a.updated||0); // newest first (default)
   });
   const list=document.getElementById('savedList');
   if(!rows.length){ list.innerHTML='<div class="saved-empty">No saved proposals'+(q?' match your search':' yet')+'.</div>'; return; }
