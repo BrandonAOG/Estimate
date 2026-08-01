@@ -86,6 +86,15 @@
   .line-name{flex:1;min-width:0}
   .line-name .n{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .line-name .p{font-size:11px;color:var(--ink-soft)}
+  .name-edit{width:100%;border:1px solid transparent;border-radius:5px;padding:3px 5px;font-size:13px;font-weight:600;font-family:inherit;color:var(--ink);background:transparent;margin-bottom:1px}
+  .name-edit:hover{border-color:var(--line)}
+  .name-edit:focus{outline:none;border-color:var(--amber);background:#fff;box-shadow:0 0 0 2px rgba(244,180,0,.15)}
+  .name-edit.changed{color:var(--ink);font-weight:700}
+  .desc-edit{width:100%;border:1px solid transparent;border-radius:5px;padding:3px 5px;font-size:11px;line-height:1.35;font-family:inherit;color:var(--ink-soft);background:transparent;resize:none;overflow:hidden;margin-bottom:2px;display:block}
+  .desc-edit:hover{border-color:var(--line)}
+  .desc-edit:focus{outline:none;border-color:var(--amber);background:#fff;color:var(--ink);box-shadow:0 0 0 2px rgba(244,180,0,.15)}
+  .desc-edit.changed{color:var(--ink)}
+  .desc-edit::placeholder{color:#c4c4c4;font-style:italic}
   .price-edit{width:64px;border:1px solid var(--line);border-radius:5px;padding:2px 5px;font-size:11px;font-family:inherit;font-variant-numeric:tabular-nums}
   .price-edit:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 2px rgba(244,180,0,.15)}
   .price-edit.changed{border-color:var(--amber-deep);background:#fff8e6;font-weight:700;color:var(--ink)}
@@ -164,6 +173,28 @@
   .btn-approve{width:100%;background:var(--green);color:#fff;font-size:17px;font-weight:800;padding:16px;border-radius:10px;min-height:56px}
   .btn-approve:hover{background:#256628}
   .btn-approve:disabled{opacity:.45;cursor:not-allowed}
+  .btn-decline{width:100%;margin-top:10px;background:#fff;color:var(--red);border:1.5px solid #e6b3ad;font-size:15px;font-weight:700;padding:13px;border-radius:10px;min-height:48px}
+  .btn-decline:hover{background:#fdecea}
+  .decline-form{display:none;margin-top:14px;border-top:1px solid var(--line-soft);padding-top:16px}
+  .decline-form.on{display:block}
+  .decline-head{font-weight:700;font-size:15px;margin-bottom:12px}
+  .decline-reasons{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .decline-reason{background:#fff;border:1.5px solid var(--line);color:var(--ink);font-size:13px;font-weight:600;padding:9px 13px;border-radius:20px;cursor:pointer;min-height:40px}
+  .decline-reason:hover{border-color:var(--ink)}
+  .decline-reason.sel{background:var(--red);color:#fff;border-color:var(--red)}
+  .decline-form textarea{width:100%;min-height:64px;padding:11px 13px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-family:inherit;resize:vertical;margin-bottom:12px}
+  .decline-form textarea:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.15)}
+  .btn-decline-send{width:100%;background:var(--red);color:#fff;font-size:16px;font-weight:800;padding:15px;border-radius:10px;min-height:52px}
+  .btn-decline-send:hover{background:#a83226}
+  .btn-decline-cancel{width:100%;margin-top:8px;background:transparent;color:var(--ink-soft);border:none;font-size:14px;font-weight:600;padding:10px;cursor:pointer}
+  .btn-decline-cancel:hover{color:var(--ink)}
+  .av-declined{text-align:center;padding:46px 26px}
+  .av-declined .ic{font-size:46px}
+  .av-declined .big{font-size:23px;font-weight:800;color:var(--ink);margin-top:6px}
+  .av-declined .callbox{background:#fff8e6;border:1px solid #f0dca0;border-radius:12px;padding:16px;margin:18px auto 0;max-width:420px;text-align:left}
+  .av-declined .callbox .row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:15px}
+  .av-declined .callbox .row + .row{border-top:1px solid #f0dca0}
+  .av-declined .callbox a{color:var(--amber-deep);font-weight:800;text-decoration:none}
   .av-done{text-align:center;padding:50px 30px}
   .av-done .big{font-size:26px;font-weight:800;color:var(--green)}
   .av-done .chk{font-size:52px}
@@ -290,6 +321,8 @@
     .line{padding:12px 12px;gap:8px;flex-wrap:wrap}
     .line-name{flex:1 1 100%;}
     .price-edit{font-size:16px;width:76px;padding:5px 7px}
+    .name-edit{font-size:16px;padding:6px 7px}
+    .desc-edit{font-size:16px;padding:6px 7px}
     .qty button{width:34px;height:34px}
     .qty input{height:34px;font-size:15px}
     .sync-box{font-size:9px}
@@ -936,6 +969,19 @@ function setPrice(i,v){
   if(l.sync && online){ pushPriceToCatalog(l.itemId,p); }
   renderQuote();
 }
+function setName(i,v){
+  const name=(v||'').trim();
+  const l=curOpt().lines[i];
+  l.name = name || l.name; // don't allow fully blank
+  saveProject();
+  renderQuote();
+}
+function setDesc(i,v){
+  curOpt().lines[i].desc=(v||'').trim();
+  saveProject();
+  renderQuote();
+}
+function autoGrow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight)+'px'; }
 function toggleSync(i,on){
   const l=curOpt().lines[i];
   l.sync=on; saveProject();
@@ -990,6 +1036,9 @@ async function cloudSaveNow(){
 async function shareForApproval(){
   if(!online){ toast('Go Team online first to share a link'); return; }
   if(!(project.customer||'').trim() && !project.options.some(o=>o.lines.length)){ toast('Add customer & items first'); return; }
+  // stamp the estimator's name/phone onto the proposal so the customer's device can show it
+  const est=estimator();
+  project.estimator={ name:(est.name||'').trim(), phone:(est.phone||'').trim() };
   await cloudSaveNow(); // make sure the latest is in the cloud
   const base=location.origin+location.pathname;
   const link=base+'?approve='+encodeURIComponent(project.id);
@@ -1023,6 +1072,9 @@ async function initApprovalView(pid){
     // if already approved, show confirmation
     if(AV.proposal.approval && AV.proposal.approval.approved){
       renderApprovedConfirmation(AV.proposal); return;
+    }
+    if(AV.proposal.decline && AV.proposal.decline.declined){
+      renderDeclinedConfirmation(AV.proposal); return;
     }
     renderApprovalView(pid);
   }catch(e){
@@ -1067,6 +1119,16 @@ function renderApprovalView(pid){
       <div class="av-approve">
         <div class="terms">By tapping Approve, you agree to move forward with the selected option and authorize Always On Generators to schedule your installation, subject to the payment terms and installation terms in this proposal.</div>
         <button class="btn-approve" id="avApproveBtn" disabled onclick="submitApproval('${pid}')">Approve this proposal</button>
+        <button class="btn-decline" id="avDeclineBtn" onclick="showDecline()">Not ready to approve</button>
+        <div id="declineForm" class="decline-form">
+          <div class="decline-head">No problem &mdash; what's holding you back?</div>
+          <div class="decline-reasons" id="declineReasons">
+            ${['Price is too high','Timing is not right','Comparing other quotes','I have some questions','Changed my mind','Something looks off'].map((r)=>`<button type="button" class="decline-reason" data-r="${esc(r)}" onclick="pickReason(this)">${esc(r)}</button>`).join('')}
+          </div>
+          <textarea id="declineNote" placeholder="Anything you'd like to add? (optional)"></textarea>
+          <button class="btn-decline-send" id="avDeclineSend" onclick="submitDecline('${pid}')">Send &amp; request a call</button>
+          <button class="btn-decline-cancel" onclick="hideDecline()">Never mind, go back</button>
+        </div>
       </div>
     </div>`;
   renderAvDoc();
@@ -1159,6 +1221,41 @@ function renderApprovedConfirmation(p){
       <p style="color:#888;font-size:13px;margin-top:18px">Questions? Call (239) 839-3553.</p>
     </div></div>`;
 }
+/* ---- Decline flow ---- */
+let AV_reason='';
+function showDecline(){ document.getElementById('declineForm').classList.add('on'); document.getElementById('avDeclineBtn').style.display='none'; document.getElementById('declineForm').scrollIntoView({behavior:'smooth',block:'nearest'}); }
+function hideDecline(){ document.getElementById('declineForm').classList.remove('on'); document.getElementById('avDeclineBtn').style.display=''; AV_reason=''; document.querySelectorAll('.decline-reason').forEach(b=>b.classList.remove('sel')); }
+function pickReason(btn){
+  document.querySelectorAll('.decline-reason').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel'); AV_reason=btn.getAttribute('data-r');
+}
+async function submitDecline(pid){
+  const note=(document.getElementById('declineNote').value||'').trim();
+  if(!AV_reason && !note){ toast('Pick a reason or add a note'); return; }
+  const p=AV.proposal;
+  p.decline={ declined:true, reason:AV_reason||'(not specified)', note, option:(p.options[AV.selected]||{}).name||'', at:new Date().toISOString() };
+  const btn=document.getElementById('avDeclineSend'); btn.disabled=true; btn.textContent='Sending\u2026';
+  try{
+    await sb.from('proposals').upsert({ id:pid, customer:p.customer||'', number:p.number||'', updated:new Date().toISOString(), data:p });
+    renderDeclinedConfirmation(p);
+  }catch(e){ btn.disabled=false; btn.textContent='Send & request a call'; toast('Could not send \u2014 please try again'); }
+}
+function renderDeclinedConfirmation(p){
+  const est=(p.estimator)||{name:'',phone:''};
+  const estName=(est.name||'').trim(), estPhone=(est.phone||'').trim();
+  const estRow = (estName||estPhone) ? `<div class="row"><span>${estName?esc(estName)+' (your estimator)':'Your estimator'}</span>${estPhone?`<a href="tel:${esc(estPhone.replace(/[^0-9+]/g,''))}">${esc(estPhone)}</a>`:''}</div>` : '';
+  document.getElementById('approveView').innerHTML=`
+    <div class="av-card"><div class="av-declined">
+      <div class="ic">\uD83D\uDCAC</div>
+      <div class="big">Thanks for letting us know</div>
+      <p style="color:#555;max-width:440px;margin:12px auto 0">We hear you. Before you decide for sure, it's worth a quick chat &mdash; sometimes there's an option or an adjustment we can make once we talk it through. Give us a call and let's see what works.</p>
+      <div class="callbox">
+        ${estRow}
+        <div class="row"><span>Always On office</span><a href="tel:2398393553">(239) 839-3553</a></div>
+      </div>
+      <p style="color:#888;font-size:13px;margin-top:18px">Your note has been sent to our team.</p>
+    </div></div>`;
+}
 function newProposalPrompt(){
   const hasContent = (project.customer||'').trim() || project.options.some(o=>o.lines.length);
   if(hasContent && !confirm('Start a new blank proposal? Your current one is already saved and can be reopened from Saved proposals.')) return;
@@ -1209,8 +1306,11 @@ function renderSavedList(){
     let total=0;
     (d.options||[]).forEach(o=>{ const s=(o.lines||[]).reduce((x,l)=>x+l.price*l.qty,0); let ds=o.discType==='pct'?s*((o.discVal||0)/100):(o.discVal||0); total=Math.max(total,s-Math.min(ds,s)); });
     const ap=d.approval&&d.approval.approved;
-    const badge=ap?`<span style="display:inline-block;background:#eaf3ea;color:#2e7d32;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:8px">&#10003; APPROVED</span>`:'';
-    const apMeta=ap?` &middot; <span style="color:#2e7d32;font-weight:600">${esc(d.approval.option||'')} signed by ${esc(d.approval.name||'')}</span>`:'';
+    const dc=d.decline&&d.decline.declined&&!ap;
+    const badge=ap?`<span style="display:inline-block;background:#eaf3ea;color:#2e7d32;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:8px">&#10003; APPROVED</span>`
+      :(dc?`<span style="display:inline-block;background:#fdecea;color:#c0392b;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:8px">&#9888; DECLINED</span>`:'');
+    const apMeta=ap?` &middot; <span style="color:#2e7d32;font-weight:600">${esc(d.approval.option||'')} signed by ${esc(d.approval.name||'')}</span>`
+      :(dc?` &middot; <span style="color:#c0392b;font-weight:600">Reason: ${esc(d.decline.reason||'')}${d.decline.note?' \u2014 \u201c'+esc(d.decline.note)+'\u201d':''}</span>`:'');
     return `<div class="saved-row">
       <div class="saved-main">
         <div class="saved-name">${esc(r.customer||'(no name)')}${r.number?' &middot; #'+esc(r.number):''}${badge}</div>
@@ -1273,17 +1373,23 @@ function renderQuote(){
   else{wrap.innerHTML=o.lines.map((l,i)=>{
     const cat=catalog.find(c=>c.id===l.itemId);
     const overridden = cat && Number(cat.price)!==Number(l.price);
+    const nameEdited = cat && (cat.name||'')!==(l.name||'');
+    const descEdited = cat && (cat.desc||'')!==(l.desc||'');
     return `
     <div class="line">
       <div class="line-name">
-        <div class="n">${esc(l.name)}</div>
-        <div class="p">$<input class="price-edit${overridden?' changed':''}" value="${(Number(l.price)||0).toFixed(2)}" onchange="setPrice(${i},this.value)" title="Price for this estimate only"> each${overridden?' <span class="ovr">(custom)</span>':''}</div>
+        <input class="name-edit${nameEdited?' changed':''}" value="${esc(l.name)}" onchange="setName(${i},this.value)" title="Item name for this estimate only">
+        <textarea class="desc-edit${descEdited?' changed':''}" rows="1" placeholder="Add a description (optional)" oninput="autoGrow(this)" onchange="setDesc(${i},this.value)" title="Description for this estimate only">${esc(l.desc||'')}</textarea>
+        <div class="p">$<input class="price-edit${overridden?' changed':''}" value="${(Number(l.price)||0).toFixed(2)}" onchange="setPrice(${i},this.value)" title="Price for this estimate only"> each${overridden||nameEdited||descEdited?' <span class="ovr">(custom)</span>':''}</div>
       </div>
       <div class="qty"><button onclick="bump(${i},-1)">&minus;</button><input value="${l.qty}" onchange="setQty(${i},this.value)"><button onclick="bump(${i},1)">+</button></div>
       <div class="line-total">${money(l.price*l.qty)}</div>
       <label class="sync-box" title="${online?'Also update this price in the shared catalog for everyone':'Sync is only available in Team online mode'}"><input type="checkbox" ${l.sync?'checked':''} ${!online?'disabled':''} onchange="toggleSync(${i},this.checked)"><span>Sync</span></label>
       <button class="line-x" title="Remove" onclick="removeLine(${i})">&times;</button>
-    </div>`;}).join('');}
+    </div>`;}).join('');
+    // size description textareas to their content
+    wrap.querySelectorAll('.desc-edit').forEach(autoGrow);
+  }
   const t=optTotals(o);
   document.getElementById('subtotal').textContent=money(t.sub);
   document.getElementById('discAmt').innerHTML='&ndash;'+money(t.disc);
