@@ -1435,7 +1435,7 @@ async function initApprovalView(pid){
     const {data,error}=await sb.rpc('get_proposal',{pid:pid});
     if(error||!data){ throw error||new Error('not found'); }
     AV.proposal=data||null;
-    try{ sb.rpc('record_view',{pid:pid}); }catch(e){} // fire-and-forget view tracking
+    try{ sb.rpc('record_view',{pid:pid}).then(()=>{},()=>{}); }catch(e){} // fire-and-forget view tracking (.then() is required or supabase-js never sends it)
     if(!AV.proposal){ throw new Error('empty'); }
     // if already approved, show confirmation
     if(AV.proposal.approval && AV.proposal.approval.approved){
