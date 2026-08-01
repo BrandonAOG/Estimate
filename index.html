@@ -11,7 +11,7 @@
     --bg:#faf9f7; --panel:#ffffff; --amber:#f4b400; --amber-deep:#c98a00;
     --green:#2e7d32; --red:#c0392b; --shadow:0 1px 3px rgba(0,0,0,.06),0 6px 24px rgba(0,0,0,.05);
   }
-  *{box-sizing:border-box} html,body{margin:0;padding:0}
+  *{box-sizing:border-box} html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.45;-webkit-font-smoothing:antialiased}
   .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
   header{position:sticky;top:0;z-index:20;background:rgba(250,249,247,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
@@ -30,7 +30,10 @@
   .btn-sm{padding:6px 10px;font-size:13px;border-radius:6px}
   .btn-danger{background:transparent;color:var(--red);border:1px solid #f0d6d2}.btn-danger:hover{background:#fdecea}
   .grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;margin-top:24px;align-items:start}
+  .catalog-col,.quote-col{min-width:0}
+  .panel{min-width:0}
   @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
   .panel-head{padding:16px 18px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;gap:10px}
   .panel-head h2{margin:0;font-size:15px;font-weight:700;letter-spacing:.2px}
@@ -255,6 +258,52 @@
   .p-foot{text-align:center;border-top:1px solid #f4b400;margin-top:24px;padding-top:14px}
   .p-foot .big{font-weight:800;font-size:14pt}
   .p-foot .sm{color:#555;font-size:10pt;margin-top:3px}
+
+  /* ===== Mobile overrides (placed last so they win) ===== */
+/* ===== Mobile builder (team side) ===== */
+  @media(max-width:640px){
+    .wrap{padding:0 12px 60px}
+    .head-in{padding:10px 12px;gap:8px;max-width:100%}
+    .logo{font-size:17px}
+    .status{font-size:11px;padding:4px 9px}
+    .head-actions{width:100%;max-width:100%;margin-left:0;gap:6px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+    .head-actions button{flex:0 0 auto;white-space:nowrap}
+    .grid{grid-template-columns:1fr;gap:14px;margin-top:14px}
+    .panel-body{max-height:none}
+    .catalog-col .panel-body{max-height:46vh}
+    .panel-head{padding:13px 14px}
+    .cat-tabs{padding:4px 10px 10px}
+    .cat-tab{font-size:12px;padding:6px 11px}
+    .quote-meta{grid-template-columns:1fr 1fr;padding:12px 12px;gap:8px}
+    .quote-meta .full{grid-column:1/-1}
+    .field input{font-size:16px;padding:9px 10px}      /* 16px = no iOS zoom */
+    .cat-search input{font-size:16px}
+    .opt-tabs{padding:10px 10px 0}
+    .opt-tab{font-size:13px;padding:8px 11px}
+    .opt-namebar{flex-wrap:wrap;padding:10px 12px}
+    .opt-namebar input{font-size:16px;min-width:60%}
+    .item{padding:12px 10px;gap:10px}
+    .item-name{font-size:14px}
+    .item-desc{font-size:12px}
+    .item-tools{opacity:1}                               /* always show +/edit/delete on touch */
+    .icon-btn{width:36px;height:36px}
+    .line{padding:12px 12px;gap:8px;flex-wrap:wrap}
+    .line-name{flex:1 1 100%;}
+    .price-edit{font-size:16px;width:76px;padding:5px 7px}
+    .qty button{width:34px;height:34px}
+    .qty input{height:34px;font-size:15px}
+    .sync-box{font-size:9px}
+    .grand .val{font-size:22px}
+    .modal{max-width:100%;border-radius:14px}
+    .modal.wide{max-width:100%}
+    .modal-body{padding:16px}
+    .modal-body .field input,.modal-body .field textarea{font-size:16px}
+    .modal-foot{flex-wrap:wrap}
+    .modal-foot button{flex:1 1 auto;min-height:44px}
+    .saved-row{flex-wrap:wrap}
+    .saved-actions{width:100%;justify-content:flex-end}
+    .saved-actions button{min-height:40px}
+  }
 </style>
 </head>
 <body>
