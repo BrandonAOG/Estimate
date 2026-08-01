@@ -1667,23 +1667,37 @@ function appDialog(o){
     document.getElementById('adTitle').textContent=o.title||'Are you sure?';
     document.getElementById('adMsg').innerHTML=o.msg||'';
     const f=document.getElementById('adField'), inp=document.getElementById('adInput');
-    if(o.input!==undefined){ f.style.display='block'; document.getElementById('adLabel').textContent=o.label||''; inp.value=o.input||''; }
+    _adMustType=o.mustType||null;
+    if(o.input!==undefined || o.mustType){ f.style.display='block'; document.getElementById('adLabel').innerHTML=o.label||''; inp.value=o.input||''; }
     else f.style.display='none';
+    inp.oninput=adTypeCheck;
     const ok=document.getElementById('adOkBtn');
     ok.textContent=o.okText||'OK';
     ok.className=(o.danger?'btn-danger':'btn-amber')+' btn-sm';
+    ok.disabled=!!o.mustType; ok.style.opacity=o.mustType?'.5':'1';
     document.getElementById('adCancel').textContent=o.cancelText||'Cancel';
     document.getElementById('appDialog').classList.add('on');
     if(o.input!==undefined) setTimeout(()=>{inp.focus();inp.select();},60);
   });
 }
+let _adMustType=null;
 function adOk(){
   const hasInput=document.getElementById('adField').style.display!=='none';
+  if(_adMustType!==null){
+    if(document.getElementById('adInput').value.trim()!==_adMustType) return; // wrong text: stay open
+  }
   const v=hasInput?document.getElementById('adInput').value:true;
+  _adMustType=null;
   document.getElementById('appDialog').classList.remove('on');
   const r=_adResolve; _adResolve=null; if(r) r(v);
 }
+function adTypeCheck(){
+  if(_adMustType===null) return;
+  const ok=document.getElementById('adInput').value.trim()===_adMustType;
+  const b=document.getElementById('adOkBtn'); b.disabled=!ok; b.style.opacity=ok?'1':'.5';
+}
 function adCancel(){
+  _adMustType=null;
   document.getElementById('appDialog').classList.remove('on');
   const r=_adResolve; _adResolve=null; if(r) r(null);
 }
@@ -1801,7 +1815,10 @@ function openProposal(pid){
 }
 async function deleteProposal(pid){
   const r=savedCache.find(x=>x.id===pid);
-  if(!await appConfirm('Delete saved proposal?','Delete the saved proposal for <b>'+esc((r&&r.customer)||'this customer')+'</b>?<br><span style="color:var(--ink-soft);font-size:13px">This removes it for the whole team and cannot be undone. Its approval link will stop working.</span>','Delete forever',true))return;
+  const typed=await appDialog({title:'Delete saved proposal?',
+    msg:'Delete the saved proposal for <b>'+esc((r&&r.customer)||'this customer')+'</b>?<br><span style="color:var(--ink-soft);font-size:13px">This removes it for the whole team and cannot be undone. Its approval link will stop working.</span>',
+    label:'Type <b style="color:var(--amber-deep)">Alwayson1</b> to confirm', input:'', mustType:'Alwayson1', okText:'Delete forever', danger:true});
+  if(typed===null)return;
   if(online){ try{ await sb.from('proposals').delete().eq('id',pid); }catch(e){} }
   savedCache=savedCache.filter(x=>x.id!==pid);
   renderSavedList(); toast('Proposal deleted');
