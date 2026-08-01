@@ -77,6 +77,8 @@
   .cat-tab:hover{border-color:var(--ink);color:var(--ink)}
   .cat-tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
   .cat-tab .n{opacity:.6;margin-left:4px;font-weight:500}
+  .cat-rename{background:transparent;border:1px dashed var(--line);border-radius:8px;padding:4px 9px;font-size:13px;color:var(--ink-soft);margin-left:4px}
+  .cat-rename:hover{border-color:var(--amber);color:var(--amber-deep)}
   .cat-group-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--amber-deep);padding:12px 12px 4px;border-top:1px solid var(--line-soft);margin-top:2px}
   .cat-group-label:first-child{border-top:none;margin-top:0}
   .opt-tabs{display:flex;gap:4px;padding:12px 12px 0;flex-wrap:wrap;align-items:center}
@@ -582,6 +584,20 @@
   <button class="mb-btn" onclick="saveProposalNamed()">Save</button>
   <button class="mb-btn mb-amber" onclick="shareForApproval()">Share</button>
   <button class="mb-btn" onclick="window.print()">Print</button>
+</div>
+<!-- Rename category modal -->
+<div class="overlay" id="renameCatModal">
+  <div class="modal">
+    <div class="modal-head">Rename category</div>
+    <div class="modal-body">
+      <div class="field"><label>Category name</label><input id="rcInput" list="catList" autocomplete="off" onkeydown="if(event.key==='Enter')saveRenameCat()"></div>
+      <div class="modal-note">Renames this category on <b id="rcCount"></b> in the catalog. If you type the name of an existing category, the two merge into one. Quotes already built are not affected.</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-sm" onclick="document.getElementById('renameCatModal').classList.remove('on')">Cancel</button>
+        <button class="btn-amber btn-sm" onclick="saveRenameCat()">Rename</button>
+      </div>
+    </div>
+  </div>
 </div>
 <!-- Typed-confirmation modal for shared catalog deletes -->
 <div class="overlay" id="confirmDelModal">
@@ -1127,11 +1143,30 @@ function renderTabs(){
   const cats=Object.keys(counts).sort();
   const all=[['All',catalog.length]].concat(cats.map(c=>[c,counts[c]]));
   document.getElementById('catTabs').innerHTML=all.map(([c,n])=>
-    `<button class="cat-tab ${activeCat===c?'active':''}" data-cat="${esc(c)}" onclick="setCat(this.dataset.cat)">${esc(c)}<span class="n">${n}</span></button>`).join('');
+    `<button class="cat-tab ${activeCat===c?'active':''}" data-cat="${esc(c)}" onclick="setCat(this.dataset.cat)">${esc(c)}<span class="n">${n}</span></button>`).join('')
+    + (activeCat!=='All'?`<button class="cat-rename" title="Rename this category" onclick="openRenameCat()">&#9998;</button>`:'');
   // refresh datalist for the add/edit form
   document.getElementById('catList').innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
 }
 function setCat(c){activeCat=c;renderTabs();renderCatalog();}
+function openRenameCat(){
+  if(activeCat==='All') return;
+  const n=catalog.filter(it=>(it.cat||'Uncategorized')===activeCat).length;
+  document.getElementById('rcCount').textContent=n+' item'+(n===1?'':'s');
+  const inp=document.getElementById('rcInput'); inp.value=activeCat;
+  document.getElementById('renameCatModal').classList.add('on');
+  setTimeout(()=>{inp.focus();inp.select();},60);
+}
+async function saveRenameCat(){
+  const oldName=activeCat, newName=(document.getElementById('rcInput').value||'').trim();
+  document.getElementById('renameCatModal').classList.remove('on');
+  if(!newName || newName===oldName || oldName==='All') return;
+  catalog.forEach(it=>{ if((it.cat||'Uncategorized')===oldName) it.cat=newName; });
+  if(online){ try{ await sb.from('catalog').update({cat:newName}).eq('cat',oldName); }catch(e){} }
+  activeCat=newName;
+  persistCat(); renderTabs(); renderCatalog();
+  toast('Category renamed for the whole team');
+}
 function renderCatalog(){
   const q=(val('search')||'').toLowerCase();
   const list=document.getElementById('catalogList');
