@@ -594,6 +594,21 @@
   <button class="mb-btn mb-amber" onclick="shareForApproval()">Share</button>
   <button class="mb-btn" onclick="window.print()">Print</button>
 </div>
+<!-- Generic themed dialog (replaces browser confirm/prompt popups) -->
+<div class="overlay" id="appDialog">
+  <div class="modal">
+    <div class="modal-head" id="adTitle"></div>
+    <div class="modal-body">
+      <div id="adMsg" style="font-size:14px;color:var(--ink);line-height:1.55"></div>
+      <div class="field" id="adField" style="display:none;margin-top:12px"><label id="adLabel"></label>
+        <input id="adInput" autocomplete="off" onkeydown="if(event.key==='Enter')adOk()"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+        <button class="btn btn-sm" id="adCancel" onclick="adCancel()"></button>
+        <button class="btn-amber btn-sm" id="adOkBtn" onclick="adOk()"></button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- Rename category modal -->
 <div class="overlay" id="renameCatModal">
   <div class="modal">
@@ -1234,9 +1249,9 @@ function dupOption(){
   project.options.push(copy); activeOpt=project.options.length-1;
   saveProject(); renderOptTabs(); fillDisc(); renderQuote(); toast('Option duplicated');
 }
-function delOption(){
+async function delOption(){
   if(project.options.length<=1) return;
-  if(!confirm('Delete "'+(curOpt().name||'this option')+'"?'))return;
+  if(!await appConfirm('Delete option?','Delete <b>'+esc(curOpt().name||'this option')+'</b> and its lines from this proposal?','Delete option',true))return;
   project.options.splice(activeOpt,1);
   activeOpt=Math.max(0,activeOpt-1);
   saveProject(); renderOptTabs(); fillDisc(); renderQuote(); toast('Option deleted');
@@ -1614,15 +1629,15 @@ function renderDeclinedConfirmation(p){
       <p style="color:#888;font-size:13px;margin-top:18px">Your note has been sent to our team.</p>
     </div></div>`;
 }
-function newProposalPrompt(){
+async function newProposalPrompt(){
   const hasContent = (project.customer||'').trim() || project.options.some(o=>o.lines.length);
-  if(hasContent && !confirm('Start a new blank proposal? Your current one is already saved and can be reopened from Saved proposals.')) return;
+  if(hasContent && !await appConfirm('Start a new proposal?','Your current one is already saved and can be reopened anytime from Saved proposals.','Start new')) return;
   cloudSaveNow(); // make sure current is stored before leaving it
   project = newProject(); activeOpt=0; lput(K_QUOTE,project);
   fillProjectMeta(); renderOptTabs(); renderQuote(); toast('New proposal started');
 }
 async function saveProposalNamed(){
-  const name=prompt('Save this proposal as (customer name):', project.customer||'');
+  const name=await appDialog({title:'Save proposal',msg:'',label:'Customer name',input:project.customer||'',okText:'Save'});
   if(name===null) return;
   if(name.trim()) project.customer=name.trim();
   readProjectMeta(); project.updated=Date.now(); lput(K_QUOTE,project);
@@ -1632,6 +1647,34 @@ async function saveProposalNamed(){
 }
 
 /* ---- Saved proposals list ---- */
+let _adResolve=null;
+function appDialog(o){
+  return new Promise(res=>{
+    _adResolve=res;
+    document.getElementById('adTitle').textContent=o.title||'Are you sure?';
+    document.getElementById('adMsg').innerHTML=o.msg||'';
+    const f=document.getElementById('adField'), inp=document.getElementById('adInput');
+    if(o.input!==undefined){ f.style.display='block'; document.getElementById('adLabel').textContent=o.label||''; inp.value=o.input||''; }
+    else f.style.display='none';
+    const ok=document.getElementById('adOkBtn');
+    ok.textContent=o.okText||'OK';
+    ok.className=(o.danger?'btn-danger':'btn-amber')+' btn-sm';
+    document.getElementById('adCancel').textContent=o.cancelText||'Cancel';
+    document.getElementById('appDialog').classList.add('on');
+    if(o.input!==undefined) setTimeout(()=>{inp.focus();inp.select();},60);
+  });
+}
+function adOk(){
+  const hasInput=document.getElementById('adField').style.display!=='none';
+  const v=hasInput?document.getElementById('adInput').value:true;
+  document.getElementById('appDialog').classList.remove('on');
+  const r=_adResolve; _adResolve=null; if(r) r(v);
+}
+function adCancel(){
+  document.getElementById('appDialog').classList.remove('on');
+  const r=_adResolve; _adResolve=null; if(r) r(null);
+}
+function appConfirm(title,msg,okText,danger){ return appDialog({title,msg,okText,danger}).then(v=>v===true); }
 let savedCache=[];
 async function exportBackup(){
   try{
@@ -1745,7 +1788,7 @@ function openProposal(pid){
 }
 async function deleteProposal(pid){
   const r=savedCache.find(x=>x.id===pid);
-  if(!confirm('Delete the saved proposal for "'+((r&&r.customer)||'this customer')+'"? This cannot be undone.'))return;
+  if(!await appConfirm('Delete saved proposal?','Delete the saved proposal for <b>'+esc((r&&r.customer)||'this customer')+'</b>?<br><span style="color:var(--ink-soft);font-size:13px">This removes it for the whole team and cannot be undone. Its approval link will stop working.</span>','Delete forever',true))return;
   if(online){ try{ await sb.from('proposals').delete().eq('id',pid); }catch(e){} }
   savedCache=savedCache.filter(x=>x.id!==pid);
   renderSavedList(); toast('Proposal deleted');
@@ -1789,8 +1832,8 @@ function renderQuote(){
   const mb=document.getElementById('mbTotal'); if(mb) mb.textContent=money(t.total);
   saveProject();
 }
-function clearOption(){
-  if(!confirm('Clear all lines from "'+(curOpt().name||'this option')+'"? Other options and your catalog stay intact.'))return;
+async function clearOption(){
+  if(!await appConfirm('Clear this option?','Remove all lines from <b>'+esc(curOpt().name||'this option')+'</b>? Other options and your catalog stay intact.','Clear lines',true))return;
   const o=curOpt(); o.lines=[]; o.discVal=0; saveProject(); fillDisc(); renderQuote(); toast('Option cleared');
 }
 function toggleProj(key,on){ project[key]=on; saveProject(); }
@@ -1841,7 +1884,7 @@ async function deleteItem(itemId){
     setTimeout(()=>inp.focus(),60);
     return;
   }
-  if(!confirm('Delete "'+it.name+'" from the catalog?'))return;
+  if(!await appConfirm('Delete catalog item?','Delete <b>'+esc(it.name)+'</b> from the catalog on this device?','Delete',true))return;
   doDeleteItem(itemId);
 }
 function cdCheck(){
@@ -1872,8 +1915,8 @@ function saveConnect(){
   if(!url||!key){toast('Paste both the URL and the key');return;}
   cfg={url,key};lput(K_CFG,cfg);closeConnect();toast('Connecting&hellip;');setTimeout(()=>location.reload(),400);
 }
-function disconnect(){
-  if(!confirm('Disconnect from the team catalog and go back to local mode?'))return;
+async function disconnect(){
+  if(!await appConfirm('Disconnect?','Leave the team catalog and go back to local mode on this device? Team data stays safe in the cloud.','Disconnect'))return;
   cfg={url:'',key:''};lput(K_CFG,cfg);location.reload();
 }
 
