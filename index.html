@@ -563,6 +563,23 @@
   <button class="mb-btn mb-amber" onclick="shareForApproval()">Share</button>
   <button class="mb-btn" onclick="window.print()">Print</button>
 </div>
+<!-- Typed-confirmation modal for shared catalog deletes -->
+<div class="overlay" id="confirmDelModal">
+  <div class="modal">
+    <div class="modal-head" style="display:flex;align-items:center;gap:10px"><img class="brandlogo" alt="" style="width:26px;height:auto">Delete shared item?</div>
+    <div class="modal-body">
+      <div style="font-size:14px;color:var(--ink);line-height:1.5;margin-bottom:6px">You&rsquo;re about to delete <b id="cdName"></b> from the catalog.</div>
+      <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;margin-bottom:14px">This item is shared with your whole team &mdash; it will disappear from everyone&rsquo;s catalog. Quotes that already include it keep their copy.</div>
+      <div class="field"><label>Type <b style="color:var(--amber-deep)">Generator1</b> to confirm</label>
+        <input id="cdInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Generator1" oninput="cdCheck()" onkeydown="if(event.key==='Enter')cdConfirm()">
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-sm" onclick="cdClose()">Cancel</button>
+        <button class="btn-danger btn-sm" id="cdBtn" disabled style="opacity:.5" onclick="cdConfirm()">Delete for everyone</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <div id="printDoc"></div>
 
@@ -1672,17 +1689,33 @@ async function saveItem(){
   }
   persistCat();closeItemModal();renderTabs();renderCatalog();renderQuote();
 }
+let cdItemId=null;
 async function deleteItem(itemId){
   const it=catalog.find(c=>c.id===itemId);
   if(!it) return;
   if(online){
-    // Shared catalog: deleting removes the item for the WHOLE team - require typed confirmation
-    const typed=prompt('This item is shared with your whole team.\n\nDeleting "'+it.name+'" removes it from the catalog for everyone.\n\nType Generator1 to confirm:');
-    if(typed===null) return;                    // cancelled
-    if(typed.trim()!=='Generator1'){ toast('Not deleted - confirmation text did not match'); return; }
-  } else {
-    if(!confirm('Delete "'+it.name+'" from the catalog?'))return;
+    // Shared catalog: typed confirmation via styled modal
+    cdItemId=itemId;
+    document.getElementById('cdName').textContent=it.name;
+    const inp=document.getElementById('cdInput'); inp.value=''; cdCheck();
+    document.getElementById('confirmDelModal').classList.add('on');
+    setTimeout(()=>inp.focus(),60);
+    return;
   }
+  if(!confirm('Delete "'+it.name+'" from the catalog?'))return;
+  doDeleteItem(itemId);
+}
+function cdCheck(){
+  const ok=document.getElementById('cdInput').value.trim()==='Generator1';
+  const b=document.getElementById('cdBtn'); b.disabled=!ok; b.style.opacity=ok?'1':'.5';
+}
+function cdClose(){ document.getElementById('confirmDelModal').classList.remove('on'); cdItemId=null; }
+async function cdConfirm(){
+  if(document.getElementById('cdInput').value.trim()!=='Generator1') return;
+  const id=cdItemId; cdClose();
+  if(id) await doDeleteItem(id);
+}
+async function doDeleteItem(itemId){
   catalog=catalog.filter(c=>c.id!==itemId);
   if(online)await sb.from('catalog').delete().eq('id',itemId);
   persistCat();renderTabs();renderCatalog();toast('Item deleted');
