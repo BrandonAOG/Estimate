@@ -2,7 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f4b400">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Always On">
 <title>Always On — Quote Builder</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -248,6 +256,22 @@
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transition:.25s;z-index:60;pointer-events:none}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
   #printDoc{display:none}
+  /* --- Mobile sticky action bar --- */
+  #mobileBar{display:none}
+  @media(max-width:640px){
+    #mobileBar{position:fixed;left:0;right:0;bottom:0;z-index:90;display:flex;align-items:center;gap:8px;
+      padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e6e3dd;
+      box-shadow:0 -4px 16px rgba(0,0,0,.08)}
+    body{padding-bottom:78px}
+    body.approve-mode #mobileBar{display:none}
+    body.approve-mode{padding-bottom:0}
+    .mb-total{display:flex;flex-direction:column;line-height:1.1;margin-right:auto;min-width:0}
+    .mb-total span{font-size:10px;color:#888;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+    .mb-total b{font-size:17px;color:#1a1a1a;white-space:nowrap}
+    .mb-btn{border:1px solid #ddd;background:#faf9f7;border-radius:10px;padding:11px 12px;font-weight:800;font-size:13px;color:#333;flex:0 0 auto}
+    .mb-btn:active{transform:scale(.97)}
+    .mb-amber{background:#f4b400;border-color:#f4b400;color:#fff}
+  }
   @media print{
     header,.wrap,.overlay,.toast{display:none!important}
     #printDoc{display:block!important}
@@ -522,6 +546,14 @@
       <button class="btn-ghost" onclick="closeSaved()">Close</button>
     </div>
   </div>
+</div>
+<!-- Mobile sticky action bar (phones only, builder view) -->
+<div id="mobileBar">
+  <div class="mb-total"><span>Total</span><b id="mbTotal">$0.00</b></div>
+  <button class="mb-btn" onclick="openItemModal()">+ Item</button>
+  <button class="mb-btn" onclick="saveProposalNamed()">Save</button>
+  <button class="mb-btn mb-amber" onclick="shareForApproval()">Share</button>
+  <button class="mb-btn" onclick="window.print()">Print</button>
 </div>
 <div class="toast" id="toast"></div>
 <div id="printDoc"></div>
@@ -1556,6 +1588,7 @@ function renderQuote(){
   document.getElementById('subtotal').textContent=money(t.sub);
   document.getElementById('discAmt').innerHTML='&ndash;'+money(t.disc);
   document.getElementById('grandTotal').textContent=money(t.total);
+  const mb=document.getElementById('mbTotal'); if(mb) mb.textContent=money(t.total);
   saveProject();
 }
 function clearOption(){
@@ -1826,6 +1859,9 @@ document.getElementById('shareModal').addEventListener('click',e=>{if(e.target.i
 document.getElementById('sigModal').addEventListener('click',e=>{if(e.target.id==='sigModal')document.getElementById('sigModal').classList.remove('on');});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();closeShare();}});
 document.querySelectorAll(".brandlogo").forEach(i=>i.src=LOGO);
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 init();
 </script>
 </body>
