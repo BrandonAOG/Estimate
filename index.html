@@ -364,6 +364,16 @@
 <div id="approveView"></div>
 
 <!-- Share link modal -->
+<div class="overlay" id="sigModal">
+  <div class="modal wide">
+    <div class="modal-head">Customer signature</div>
+    <div class="modal-body" id="sigModalBody"></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="document.getElementById('sigModal').classList.remove('on')">Close</button>
+      <button class="btn-amber" id="sigDownloadBtn">Download signature</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="shareModal">
   <div class="modal wide">
     <div class="modal-head">Share this proposal for approval</div>
@@ -1119,11 +1129,31 @@ function renderSavedList(){
         <div class="saved-meta">${opts} option${opts===1?'':'s'} &middot; up to ${money(total)} &middot; saved ${when}${apMeta}</div>
       </div>
       <div class="saved-actions">
+        ${ap?`<button class="btn-ghost btn-sm" onclick="viewSignature('${r.id}')">View signature</button>`:''}
         <button class="btn-amber btn-sm" onclick="openProposal('${r.id}')">Open</button>
         <button class="btn-danger btn-sm" onclick="deleteProposal('${r.id}')">Delete</button>
       </div>
     </div>`;
   }).join('');
+}
+function viewSignature(pid){
+  const r=savedCache.find(x=>x.id===pid);
+  const a=r&&r.data&&r.data.approval;
+  const body=document.getElementById('sigModalBody');
+  if(!a||!a.approved){ body.innerHTML='<div class="saved-empty">No signature on file for this proposal.</div>'; document.getElementById('sigModal').classList.add('on'); return; }
+  const when=a.at?new Date(a.at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
+  body.innerHTML=`
+    <div style="font-size:14px;margin-bottom:10px">
+      <div><b>${esc(a.name||'')}</b> approved <b>${esc(a.option||'')}</b></div>
+      <div style="color:var(--ink-soft);font-size:12px;margin-top:2px">Signed ${esc(when)}</div>
+    </div>
+    ${a.signature?`<img src="${a.signature}" alt="signature" style="width:100%;border:1px solid var(--line);border-radius:8px;background:#fff">`:'<div class="saved-empty">Signature image not available.</div>'}`;
+  const dl=document.getElementById('sigDownloadBtn');
+  if(a.signature){
+    dl.style.display='';
+    dl.onclick=()=>{ const link=document.createElement('a'); link.href=a.signature; link.download='signature_'+(r.customer||'customer').replace(/\s+/g,'_')+'.png'; link.click(); };
+  } else { dl.style.display='none'; }
+  document.getElementById('sigModal').classList.add('on');
 }
 function openProposal(pid){
   const r=savedCache.find(x=>x.id===pid); if(!r){toast('Not found');return;}
@@ -1366,7 +1396,14 @@ function buildPrintDoc(){
     <div class="p-foot">
       <div class="big">Ready to keep your home always on?</div>
       <div class="sm">${callLine}</div>
-    </div>`;
+    </div>
+    ${project.approval&&project.approval.approved?`
+    <div style="margin-top:22px;border-top:1px solid #ddd;padding-top:14px">
+      <div style="font-size:11pt;font-weight:800;margin-bottom:6px">Customer approval</div>
+      <div style="font-size:9.5pt;color:#333">Approved option: <b>${esc(project.approval.option||'')}</b></div>
+      <div style="font-size:9.5pt;color:#333;margin-bottom:6px">Signed by ${esc(project.approval.name||'')} on ${esc(project.approval.at?new Date(project.approval.at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'')}</div>
+      ${project.approval.signature?`<img src="${project.approval.signature}" alt="signature" style="height:70px;border:1px solid #ddd;border-radius:4px;background:#fff">`:''}
+    </div>`:''}`;
 }
 window.addEventListener('beforeprint',buildPrintDoc);
 
@@ -1376,6 +1413,7 @@ document.getElementById('itemModal').addEventListener('click',e=>{if(e.target.id
 document.getElementById('connectModal').addEventListener('click',e=>{if(e.target.id==='connectModal')closeConnect();});
 document.getElementById('savedModal').addEventListener('click',e=>{if(e.target.id==='savedModal')closeSaved();});
 document.getElementById('shareModal').addEventListener('click',e=>{if(e.target.id==='shareModal')closeShare();});
+document.getElementById('sigModal').addEventListener('click',e=>{if(e.target.id==='sigModal')document.getElementById('sigModal').classList.remove('on');});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();closeShare();}});
 init();
 </script>
