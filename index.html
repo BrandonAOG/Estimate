@@ -2266,23 +2266,16 @@ document.getElementById('shareModal').addEventListener('click',e=>{if(e.target.i
 document.getElementById('sigModal').addEventListener('click',e=>{if(e.target.id==='sigModal')document.getElementById('sigModal').classList.remove('on');});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();closeShare();}});
 document.querySelectorAll(".brandlogo").forEach(i=>i.src=LOGO);
-document.getElementById('verLabel').textContent='v'+APP_VERSION;
-// Ask the active service worker its real version; show it, and flag any mismatch
+// The footer version is whatever the live SERVICE WORKER reports - the SW is the
+// single source of truth for this app's version. No hardcoded HTML version is shown.
 function showSwVersion(){
+  const el=document.getElementById('verLabel'); if(!el) return;
+  if(!('serviceWorker' in navigator) || !navigator.serviceWorker.controller){ el.textContent=''; return; }
   try{
-    if(!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
     const ch=new MessageChannel();
-    ch.port1.onmessage=e=>{
-      const sw=(e.data&&e.data.version)||null;
-      const el=document.getElementById('verLabel'); if(!el) return;
-      if(sw && sw!==APP_VERSION){
-        el.innerHTML='v'+APP_VERSION+' <span style="color:#c0392b">(app cache v'+sw+' - refresh to update)</span>';
-      } else {
-        el.textContent='v'+APP_VERSION;
-      }
-    };
+    ch.port1.onmessage=e=>{ const sw=(e.data&&e.data.version); el.textContent=sw?('v'+sw):''; };
     navigator.serviceWorker.controller.postMessage({type:'GET_VERSION'},[ch.port2]);
-  }catch(e){}
+  }catch(e){ el.textContent=''; }
 }
 showSwVersion();
 if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange',()=>setTimeout(showSwVersion,200));
