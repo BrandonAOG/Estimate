@@ -256,6 +256,9 @@
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transition:.25s;z-index:60;pointer-events:none}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
   #printDoc{display:none}
+  .line-wrap{position:relative}
+  .swipe-del-btn{display:none}
+  @media(max-width:640px){ .swipe-del-btn{display:flex} }
   /* --- Mobile sticky action bar --- */
   #mobileBar{display:none}
   @media(max-width:640px){
@@ -375,11 +378,14 @@
     .line-x{font-size:20px;padding:10px 12px;margin:-6px -6px -6px -8px}
     /* prevent iOS zoom-on-focus: inputs must be >=16px */
     .name-edit,.desc-edit,.price-edit,.meta-grid input,#qCustomer,#qAddress,#qNumber,#qDate{font-size:16px}
-    /* swipe-to-delete */
-    .line{position:relative;touch-action:pan-y;transition:transform .18s ease;background:var(--card,#fff)}
+    /* swipe-to-delete: swipe left reveals a red DELETE button; tapping it confirms */
+    .line-wrap{position:relative;overflow:hidden}
+    .swipe-del-btn{position:absolute;top:0;bottom:0;right:0;width:96px;border:none;background:#d84343;color:#fff;
+      font-weight:800;font-size:14px;letter-spacing:.5px;display:flex;align-items:center;justify-content:center}
+    .swipe-del-btn:active{background:#b93636}
+    .line{position:relative;z-index:1;touch-action:pan-y;transition:transform .18s ease;background:var(--panel)}
     .line.swiping{transition:none}
-    .line.swipe-del{transform:translateX(-110%);transition:transform .22s ease,opacity .22s ease;opacity:0}
-    .swipe-bg{position:absolute;inset:0;left:auto;width:110%;right:-110%;background:#d84343;color:#fff;display:flex;align-items:center;padding-left:18px;font-weight:800;font-size:14px;border-radius:0}
+    .line.swipe-out{transform:translateX(-110%)!important;transition:transform .22s ease,opacity .22s ease;opacity:0}
     .sync-box{font-size:9px}
     .grand .val{font-size:22px}
     .modal{max-width:100%;border-radius:14px}
@@ -1216,36 +1222,57 @@ async function pushPriceToCatalog(itemId,price){
   renderCatalog();
 }
 function removeLine(i){curOpt().lines.splice(i,1);saveProject();renderQuote();}
-/* --- swipe-left-to-remove on phones --- */
+/* --- swipe-left-to-remove on phones: reveal red DELETE, tap to confirm --- */
 (function(){
-  const wrap=()=>document.getElementById('quoteLines');
-  let row=null, idx=-1, startX=0, startY=0, dx=0, locked=null;
+  const REVEAL=96;                      // width of the DELETE button
+  let row=null, startX=0, startY=0, base=0, dx=0, locked=null, openRow=null;
+
+  function closeOpen(){ if(openRow){ openRow.style.transform=''; openRow=null; } }
+
   document.addEventListener('touchstart',e=>{
     if(window.innerWidth>640) return;
-    const w=wrap(); if(!w||!w.contains(e.target)) return;
+    const wrapEl=document.getElementById('quoteLines');
+    if(!wrapEl) return;
     const t=e.target;
+    // tapping the revealed DELETE button: let its onclick handle it
+    if(t.closest('.swipe-del-btn')) return;
+    const r=t.closest('#quoteLines .line');
+    if(!r){ closeOpen(); return; }        // touch outside any row closes an open one
+    if(openRow && r!==openRow) closeOpen();
     if(t.closest('input,textarea,button,label')) return; // don't hijack controls
-    row=t.closest('.line'); if(!row) return;
-    idx=[...w.children].indexOf(row);
+    row=r;
+    base=(row===openRow)?-REVEAL:0;
     startX=e.touches[0].clientX; startY=e.touches[0].clientY; dx=0; locked=null;
     row.classList.add('swiping');
   },{passive:true});
+
   document.addEventListener('touchmove',e=>{
     if(!row) return;
     const mx=e.touches[0].clientX-startX, my=e.touches[0].clientY-startY;
     if(locked===null && (Math.abs(mx)>8||Math.abs(my)>8)) locked=Math.abs(mx)>Math.abs(my)?'h':'v';
-    if(locked!=='h'){ return; }
-    dx=Math.min(0,mx);
+    if(locked!=='h') return;
+    dx=Math.max(-window.innerWidth, Math.min(0, base+mx));   // clamp: no right-drag past start
     row.style.transform='translateX('+dx+'px)';
   },{passive:true});
+
   document.addEventListener('touchend',()=>{
     if(!row) return;
-    const r=row, i=idx; row.classList.remove('swiping'); row=null;
-    if(locked==='h' && dx<-96){
-      r.classList.add('swipe-del');
+    const r=row; r.classList.remove('swiping'); row=null;
+    if(locked!=='h'){ if(r!==openRow) r.style.transform=''; return; }
+    if(dx < -window.innerWidth*0.55){
+      // long hard swipe = delete in one motion (standard power-user shortcut)
+      const wrapEl=r.closest('.line-wrap');
+      const i=[...document.querySelectorAll('#quoteLines .line-wrap')].indexOf(wrapEl);
+      r.classList.add('swipe-out');
       setTimeout(()=>{ if(i>-1) removeLine(i); },200);
+      openRow=null;
+    } else if(dx < -REVEAL/2){
+      // snap open: DELETE button revealed, waiting for the confirming tap
+      r.style.transform='translateX(-'+REVEAL+'px)';
+      openRow=r;
     } else {
       r.style.transform='';
+      if(openRow===r) openRow=null;
     }
     dx=0; locked=null;
   },{passive:true});
@@ -1629,6 +1656,7 @@ function renderQuote(){
     const nameEdited = cat && (cat.name||'')!==(l.name||'');
     const descEdited = cat && (cat.desc||'')!==(l.desc||'');
     return `
+    <div class="line-wrap"><button class="swipe-del-btn" onclick="removeLine(${i})">Delete</button>
     <div class="line">
       <div class="line-name">
         <input class="name-edit${nameEdited?' changed':''}" value="${esc(l.name)}" onchange="setName(${i},this.value)" title="Item name for this estimate only">
@@ -1639,7 +1667,7 @@ function renderQuote(){
       <div class="line-total">${money(l.price*l.qty)}</div>
       <label class="sync-box" title="${online?'Also update this price in the shared catalog for everyone':'Sync is only available in Team online mode'}"><input type="checkbox" ${l.sync?'checked':''} ${!online?'disabled':''} onchange="toggleSync(${i},this.checked)"><span>Sync</span></label>
       <button class="line-x" title="Remove" onclick="removeLine(${i})">&times;</button>
-    </div>`;}).join('');
+    </div></div>`;}).join('');
     // size description textareas to their content
     wrap.querySelectorAll('.desc-edit').forEach(autoGrow);
   }
