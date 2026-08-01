@@ -370,8 +370,16 @@
     .price-edit{font-size:16px;width:76px;padding:5px 7px}
     .name-edit{font-size:16px;padding:6px 7px}
     .desc-edit{font-size:16px;padding:6px 7px}
-    .qty button{width:34px;height:34px}
-    .qty input{height:34px;font-size:15px}
+    .qty button{width:42px;height:42px;font-size:18px}
+    .qty input{height:42px;font-size:16px;width:40px}
+    .line-x{font-size:20px;padding:10px 12px;margin:-6px -6px -6px -8px}
+    /* prevent iOS zoom-on-focus: inputs must be >=16px */
+    .name-edit,.desc-edit,.price-edit,.meta-grid input,#qCustomer,#qAddress,#qNumber,#qDate{font-size:16px}
+    /* swipe-to-delete */
+    .line{position:relative;touch-action:pan-y;transition:transform .18s ease;background:var(--card,#fff)}
+    .line.swiping{transition:none}
+    .line.swipe-del{transform:translateX(-110%);transition:transform .22s ease,opacity .22s ease;opacity:0}
+    .swipe-bg{position:absolute;inset:0;left:auto;width:110%;right:-110%;background:#d84343;color:#fff;display:flex;align-items:center;padding-left:18px;font-weight:800;font-size:14px;border-radius:0}
     .sync-box{font-size:9px}
     .grand .val{font-size:22px}
     .modal{max-width:100%;border-radius:14px}
@@ -1191,6 +1199,40 @@ async function pushPriceToCatalog(itemId,price){
   renderCatalog();
 }
 function removeLine(i){curOpt().lines.splice(i,1);saveProject();renderQuote();}
+/* --- swipe-left-to-remove on phones --- */
+(function(){
+  const wrap=()=>document.getElementById('quoteLines');
+  let row=null, idx=-1, startX=0, startY=0, dx=0, locked=null;
+  document.addEventListener('touchstart',e=>{
+    if(window.innerWidth>640) return;
+    const w=wrap(); if(!w||!w.contains(e.target)) return;
+    const t=e.target;
+    if(t.closest('input,textarea,button,label')) return; // don't hijack controls
+    row=t.closest('.line'); if(!row) return;
+    idx=[...w.children].indexOf(row);
+    startX=e.touches[0].clientX; startY=e.touches[0].clientY; dx=0; locked=null;
+    row.classList.add('swiping');
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!row) return;
+    const mx=e.touches[0].clientX-startX, my=e.touches[0].clientY-startY;
+    if(locked===null && (Math.abs(mx)>8||Math.abs(my)>8)) locked=Math.abs(mx)>Math.abs(my)?'h':'v';
+    if(locked!=='h'){ return; }
+    dx=Math.min(0,mx);
+    row.style.transform='translateX('+dx+'px)';
+  },{passive:true});
+  document.addEventListener('touchend',()=>{
+    if(!row) return;
+    const r=row, i=idx; row.classList.remove('swiping'); row=null;
+    if(locked==='h' && dx<-96){
+      r.classList.add('swipe-del');
+      setTimeout(()=>{ if(i>-1) removeLine(i); },200);
+    } else {
+      r.style.transform='';
+    }
+    dx=0; locked=null;
+  },{passive:true});
+})();
 function readProjectMeta(){
   project.customer=val('qCustomer');project.address=val('qAddress');project.number=val('qNumber');project.date=val('qDate');
 }
@@ -1632,7 +1674,15 @@ async function saveItem(){
 }
 async function deleteItem(itemId){
   const it=catalog.find(c=>c.id===itemId);
-  if(!confirm('Delete "'+it.name+'" from the catalog?'))return;
+  if(!it) return;
+  if(online){
+    // Shared catalog: deleting removes the item for the WHOLE team - require typed confirmation
+    const typed=prompt('This item is shared with your whole team.\n\nDeleting "'+it.name+'" removes it from the catalog for everyone.\n\nType Generator1 to confirm:');
+    if(typed===null) return;                    // cancelled
+    if(typed.trim()!=='Generator1'){ toast('Not deleted - confirmation text did not match'); return; }
+  } else {
+    if(!confirm('Delete "'+it.name+'" from the catalog?'))return;
+  }
   catalog=catalog.filter(c=>c.id!==itemId);
   if(online)await sb.from('catalog').delete().eq('id',itemId);
   persistCat();renderTabs();renderCatalog();toast('Item deleted');
