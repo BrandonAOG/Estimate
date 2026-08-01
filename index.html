@@ -302,7 +302,7 @@
   .p-tot .r{display:flex;justify-content:space-between;padding:3px 0;font-size:10.5pt}
   .p-tot .r.d{color:#2e7d32}
   .p-tot .grand{display:flex;justify-content:space-between;border-top:2px solid #1a1a1a;margin-top:6px;padding-top:8px;font-weight:800;font-size:15pt}
-  .p-why{margin-top:20px}
+  .p-why{margin-top:0;break-before:page;page-break-before:always;padding-top:10px}
   .p-why h3{font-size:13pt;margin:0 0 8px}
   .p-why div{font-size:10pt;margin:4px 0;padding-left:20px;position:relative}
   .p-why div:before{content:"\2713";color:#2e7d32;font-weight:700;position:absolute;left:0}
@@ -1707,6 +1707,28 @@ function buildPrintDoc(){
   const est=estimator();
   const estName=(est.name||'').trim();
   const estPhone=(est.phone||'').trim();
+  // Detect extended warranty line items and read the YEAR COUNT off them
+  const extYears = o => {
+    let yrs=0;
+    (o.lines||[]).forEach(l=>{
+      const txt=(l.name||'')+' '+(l.desc||'');
+      if(/extended.*warrant|warrant.*extended/i.test(txt)){
+        const m=txt.match(/(\d+)\s*(?:-|\s)?\s*year/i);
+        yrs=Math.max(yrs, m?parseInt(m[1],10):0);
+      }
+    });
+    return yrs; // 0 = no extended warranty on this option
+  };
+  const optsWithLines = project.options.filter(o=>(o.lines||[]).length);
+  const yearsPerOpt = optsWithLines.map(extYears);
+  const allHaveExt = yearsPerOpt.length>0 && yearsPerOpt.every(y=>y>0);
+  const sameYears = allHaveExt && yearsPerOpt.every(y=>y===yearsPerOpt[0]) ? yearsPerOpt[0] : 0;
+  const ledeWarranty = sameYears
+    ? 'backed by a '+sameYears+'-year parts-and-labor extended warranty'
+    : 'backed by Generac\u2019s factory warranty, with extended coverage available';
+  const whyWarranty = sameYears
+    ? 'Genuine Generac equipment with '+sameYears+'-year extended parts-and-labor warranty included in this proposal'
+    : 'Genuine Generac equipment with factory-backed warranty \u2014 extended coverage available';
   // Printed approval link + QR (only when saved to the team cloud and not yet decided)
   let approveBlock='';
   const decided = (project.approval&&project.approval.approved)||(project.decline&&project.decline.declined);
@@ -1744,7 +1766,7 @@ function buildPrintDoc(){
       </div>
     </div>
     <div class="p-hero">Never Lose Power Again.</div>
-    <div class="p-lede">A fully automatic, whole-home Generac standby system &mdash; professionally installed, permitted, and backed by a 10-year parts-and-labor warranty. When the grid goes down, your home stays on.</div>
+    <div class="p-lede">A fully automatic, whole-home Generac standby system &mdash; professionally installed, permitted, and ${ledeWarranty}. When the grid goes down, your home stays on.</div>
     <div class="p-banner">Everything is handled for you &mdash; start to finish</div>
     ${cmpHtml}
     ${detailHtml}
@@ -1755,7 +1777,7 @@ function buildPrintDoc(){
       <div>A dedicated project manager assigned to your installation from start to finish &mdash; your single point of contact every step of the way</div>
       <div>A complete break-in maintenance plan &mdash; we don't just install your generator, we make sure it runs flawlessly when you need it most, so it never lets you down in the middle of an emergency</div>
       <div>We pull every permit and coordinate all inspections for you</div>
-      <div>Genuine Generac equipment with factory-backed 10-year warranty</div>
+      <div>${whyWarranty}</div>
       <div>Cellular monitoring so your system alerts us &mdash; not just you &mdash; if anything's off</div>
       <div>Local team serving Southwest Florida</div>
     </div>
