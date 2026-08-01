@@ -1139,6 +1139,7 @@ async function doLogin(){
   }
 }
 async function doLogout(){
+  if(!await appConfirm('Sign out?','You\u2019ll need your email and password to sign back in. Your proposals and catalog stay safe in the team cloud.','Sign out'))return;
   if(sb&&sb.auth){ try{ await sb.auth.signOut(); }catch(e){} }
   location.reload();
 }
