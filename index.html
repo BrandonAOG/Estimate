@@ -514,8 +514,7 @@
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="optCompare" checked onchange="toggleProj('showCompare',this.checked)"> Show side-by-side comparison table</label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="optDetail" checked onchange="toggleProj('showDetail',this.checked)"> Show full itemized detail for each option</label>
         </div>
-        <div style="padding:12px 16px;display:flex;gap:8px;justify-content:space-between;border-top:1px solid var(--line-soft)">
-          <button class="btn-ghost btn-sm" onclick="dupOption()">Duplicate this option</button>
+        <div style="padding:12px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-soft)">
           <button class="btn-danger btn-sm" onclick="clearOption()">Clear this option</button>
         </div>
         <div class="save-note" id="saveNote">&#10003; Saving locally in this browser</div>
@@ -1241,8 +1240,7 @@ function duplicateOption(){
   const copy=JSON.parse(JSON.stringify(src));
   copy.lines=(copy.lines||[]).map(l=>({...l, id:id()}));   // fresh line ids
   copy.recommended=false;                                   // only one star per proposal
-  const base=OPT_NAMES[project.options.length]||('Option '+(project.options.length+1));
-  copy.name=(src.name&&src.name.trim())?src.name.trim()+' (copy)':base;
+  copy.name=OPT_NAMES[project.options.length]||('Option '+(project.options.length+1));
   project.options.push(copy);
   activeOpt=project.options.length-1;
   saveProject(); renderOptTabs(); fillDisc(); renderQuote();
@@ -1254,14 +1252,6 @@ function addOption(){
   project.options.push(newOption(name));
   activeOpt=project.options.length-1;
   saveProject(); renderOptTabs(); fillDisc(); renderQuote(); toast('Option added');
-}
-function dupOption(){
-  if(project.options.length>=MAX_OPTIONS){toast('Max 5 options');return;}
-  const src=curOpt();
-  const copy=JSON.parse(JSON.stringify(src));
-  copy.name=(src.name||'Option')+' (copy)'; copy.recommended=false;
-  project.options.push(copy); activeOpt=project.options.length-1;
-  saveProject(); renderOptTabs(); fillDisc(); renderQuote(); toast('Option duplicated');
 }
 async function delOption(){
   if(project.options.length<=1) return;
