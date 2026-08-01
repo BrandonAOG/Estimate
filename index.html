@@ -77,6 +77,8 @@
   .cat-tab:hover{border-color:var(--ink);color:var(--ink)}
   .cat-tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
   .cat-tab .n{opacity:.6;margin-left:4px;font-weight:500}
+  .profile-chip{width:32px;height:32px;border-radius:50%;border:2px solid var(--amber);background:#fff7e0;color:var(--amber-deep);font-weight:800;font-size:12px;letter-spacing:.5px;display:inline-flex;align-items:center;justify-content:center;padding:0}
+  .profile-chip:hover{background:var(--amber);color:#fff}
   .cat-rename{background:transparent;border:1px dashed var(--line);border-radius:8px;padding:4px 9px;font-size:13px;color:var(--ink-soft);margin-left:4px}
   .cat-rename:hover{border-color:var(--amber);color:var(--amber-deep)}
   .cat-group-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--amber-deep);padding:12px 12px 4px;border-top:1px solid var(--line-soft);margin-top:2px}
@@ -460,6 +462,7 @@
     <div class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">Local mode</span></div>
     <div class="head-actions">
       <button class="btn-ghost btn-sm" onclick="openConnect()">Connect team &#9881;</button>
+      <button class="profile-chip" id="profileChip" onclick="openProfileModal()" title="Your profile" style="display:none">?</button>
       <button class="btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
       <button class="btn-ghost btn-sm" onclick="openSaved()">&#128194; Saved proposals</button>
       <button class="btn-ghost btn-sm" onclick="newProposalPrompt()">+ New proposal</button>
@@ -604,6 +607,22 @@
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
         <button class="btn btn-sm" id="adCancel" onclick="adCancel()"></button>
         <button class="btn-amber btn-sm" id="adOkBtn" onclick="adOk()"></button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Staff profile modal -->
+<div class="overlay" id="profileModal">
+  <div class="modal">
+    <div class="modal-head" style="display:flex;align-items:center;gap:10px"><img class="brandlogo" alt="" style="width:26px;height:auto"><span id="pfTitle">Your profile</span></div>
+    <div class="modal-body">
+      <div class="modal-note" id="pfIntro" style="display:none;margin-top:0;margin-bottom:12px"><b>Welcome!</b> Set up your profile once &mdash; your name and phone will appear automatically on every proposal you build, on any device you sign in from.</div>
+      <div class="field"><label>Your name</label><input id="pfName" placeholder="e.g. Johnny Estimator" autocomplete="name"></div>
+      <div class="field"><label>Your phone</label><input id="pfPhone" placeholder="(239) 555-1234" autocomplete="tel"></div>
+      <div class="field"><label>Login email</label><input id="pfEmail" readonly style="background:#f5f4f1;color:#888"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-sm" onclick="document.getElementById('profileModal').classList.remove('on')">Cancel</button>
+        <button class="btn-amber btn-sm" onclick="saveProfile()">Save profile</button>
       </div>
     </div>
   </div>
@@ -1128,6 +1147,7 @@ async function startBuilder(){
   if(!project.options || !project.options.length) project = newProject();
   if(!project.id) project.id='p'+rid(16);
   activeOpt = Math.min(activeOpt, project.options.length-1);
+  setTimeout(()=>{ try{ loadProfile(); }catch(e){} }, 300);
   if(cfg.url && cfg.key && window.supabase){
     try{
       if(!sb) sb = window.supabase.createClient(cfg.url,cfg.key);
@@ -1374,6 +1394,49 @@ function readProjectMeta(){
   project.customer=val('qCustomer');project.address=val('qAddress');project.number=val('qNumber');project.date=val('qDate');
 }
 const K_EST='aog_estimator_v1';
+let profile=null, profileUser=null;
+async function loadProfile(){
+  if(!online||!sb) return;
+  try{
+    const {data:{user}}=await sb.auth.getUser();
+    if(!user) return;
+    profileUser=user;
+    const {data}=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    profile=data||null;
+    const chip=document.getElementById('profileChip');
+    if(profile&&(profile.name||profile.phone)){
+      // profile fills the estimator fields on any device this account signs in from
+      lput(K_EST,{name:profile.name||'',phone:profile.phone||''});
+      fillEstimator();
+      chip.style.display='inline-flex';
+      chip.textContent=(profile.name||user.email||'?').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    } else {
+      chip.style.display='inline-flex'; chip.textContent='?';
+      openProfileModal(true); // first sign-in: invite them to set it up
+    }
+  }catch(e){ /* profiles table may not exist yet; app works fine without */ }
+}
+function openProfileModal(first){
+  document.getElementById('pfIntro').style.display=first===true?'block':'none';
+  document.getElementById('pfName').value=(profile&&profile.name)||val('qEstName')||'';
+  document.getElementById('pfPhone').value=(profile&&profile.phone)||val('qEstPhone')||'';
+  document.getElementById('pfEmail').value=(profileUser&&profileUser.email)||'';
+  document.getElementById('profileModal').classList.add('on');
+}
+async function saveProfile(){
+  const name=val('pfName').trim(), phone=val('pfPhone').trim();
+  document.getElementById('profileModal').classList.remove('on');
+  if(!profileUser){ toast('Sign in to save a profile'); return; }
+  try{
+    await sb.from('profiles').upsert({id:profileUser.id,name,phone,email:profileUser.email||'',updated:new Date().toISOString()});
+    profile={id:profileUser.id,name,phone,email:profileUser.email||''};
+    lput(K_EST,{name,phone}); fillEstimator();
+    const chip=document.getElementById('profileChip');
+    chip.style.display='inline-flex';
+    chip.textContent=(name||profileUser.email||'?').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    toast('Profile saved - it follows your login everywhere');
+  }catch(e){ toast('Could not save profile - run the profiles SQL first'); }
+}
 function saveEstimator(){ lput(K_EST,{name:val('qEstName'),phone:val('qEstPhone')}); }
 function fillEstimator(){ const e=load(K_EST,{name:'',phone:''})||{name:'',phone:''}; setv('qEstName',e.name||''); setv('qEstPhone',e.phone||''); }
 function estimator(){ return load(K_EST,{name:'',phone:''})||{name:'',phone:''}; }
