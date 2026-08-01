@@ -28,6 +28,11 @@
   .login-btn:hover{background:#000}
   .login-btn:disabled{opacity:.5;cursor:not-allowed}
   .login-note{text-align:center;color:#aaa;font-size:12px;margin-top:16px;line-height:1.5}
+  .login-desc{color:#666;font-size:13px;line-height:1.5;margin-bottom:16px;text-align:center}
+  .login-link{text-align:center;margin-top:14px}
+  .login-link a{color:var(--amber-deep);font-size:13px;font-weight:700;text-decoration:none}
+  .login-link a:hover{text-decoration:underline}
+  .login-ok{color:#2e7d32;font-size:13px;font-weight:600;text-align:center;margin-top:12px;line-height:1.5}
   body.locked header,body.locked .wrap{display:none!important}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.45;-webkit-font-smoothing:antialiased}
   .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
@@ -360,12 +365,37 @@
 <div id="loginGate">
   <div class="login-card">
     <div class="login-logo">ALWAYS<span>ON</span><small>QUOTE BUILDER</small></div>
-    <div class="login-sub">Team sign-in</div>
-    <div class="login-field"><label>Email</label><input id="loginEmail" type="email" autocomplete="username" placeholder="you@alwaysongenerators.com"></div>
-    <div class="login-field"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="Your password"></div>
-    <div class="login-err" id="loginErr"></div>
-    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign in</button>
-    <div class="login-note">This area is for Always On staff only. Customers with an approval link don't need to sign in.</div>
+
+    <!-- Sign in -->
+    <div id="viewSignin">
+      <div class="login-sub">Team sign-in</div>
+      <div class="login-field"><label>Email</label><input id="loginEmail" type="email" autocomplete="username" placeholder="you@alwaysongenerators.com"></div>
+      <div class="login-field"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="Your password"></div>
+      <div class="login-err" id="loginErr"></div>
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign in</button>
+      <div class="login-link"><a href="#" onclick="showForgot();return false;">Forgot password?</a></div>
+      <div class="login-note">This area is for Always On staff only. Customers with an approval link don't need to sign in.</div>
+    </div>
+
+    <!-- Forgot password -->
+    <div id="viewForgot" style="display:none">
+      <div class="login-sub">Reset your password</div>
+      <div class="login-desc">Enter your email and we'll send you a link to set a new password.</div>
+      <div class="login-field"><label>Email</label><input id="forgotEmail" type="email" autocomplete="username" placeholder="you@alwaysongenerators.com"></div>
+      <div class="login-err" id="forgotErr"></div>
+      <button class="login-btn" id="forgotBtn" onclick="doForgot()">Send reset link</button>
+      <div class="login-link"><a href="#" onclick="showSignin();return false;">&larr; Back to sign in</a></div>
+    </div>
+
+    <!-- Set new password (after clicking email link) -->
+    <div id="viewReset" style="display:none">
+      <div class="login-sub">Set a new password</div>
+      <div class="login-desc">Choose a new password for your account.</div>
+      <div class="login-field"><label>New password</label><input id="resetPass" type="password" autocomplete="new-password" placeholder="At least 6 characters"></div>
+      <div class="login-field"><label>Confirm password</label><input id="resetPass2" type="password" autocomplete="new-password" placeholder="Re-enter password"></div>
+      <div class="login-err" id="resetErr"></div>
+      <button class="login-btn" id="resetBtn" onclick="doReset()">Save new password</button>
+    </div>
   </div>
 </div>
 
@@ -863,6 +893,19 @@ async function init(){
   const approveId=params.get('approve');
   if(approveId){ return initApprovalView(approveId); }
 
+  // Password-recovery return: Supabase puts type=recovery in the URL hash
+  const hash=location.hash||'';
+  const isRecovery = hash.includes('type=recovery') || params.get('reset')!==null;
+  if(isRecovery && cfg.url && cfg.key && window.supabase){
+    sb = window.supabase.createClient(cfg.url,cfg.key);
+    // wait for supabase to parse the recovery token from the URL
+    try{ await sb.auth.getSession(); }catch(e){}
+    sb.auth.onAuthStateChange((evt)=>{ /* recovery session established */ });
+    showLoginGate();
+    showReset();
+    return;
+  }
+
   // Builder route: require a signed-in staff session
   if(cfg.url && cfg.key){
     if(!window.supabase){ showLoginGate('Could not load sign-in. Check your connection and refresh.'); return; }
@@ -875,6 +918,43 @@ async function init(){
     // no cloud configured: local-only mode, no auth needed
   }
   await startBuilder();
+}
+/* ---- login view switching ---- */
+function showSignin(){ document.getElementById('viewSignin').style.display=''; document.getElementById('viewForgot').style.display='none'; document.getElementById('viewReset').style.display='none'; }
+function showForgot(){ document.getElementById('viewSignin').style.display='none'; document.getElementById('viewForgot').style.display=''; document.getElementById('viewReset').style.display='none'; const e=document.getElementById('forgotEmail'); if(e){ e.value=document.getElementById('loginEmail').value||''; setTimeout(()=>e.focus(),40);} }
+function showReset(){ document.getElementById('viewSignin').style.display='none'; document.getElementById('viewForgot').style.display='none'; document.getElementById('viewReset').style.display=''; const e=document.getElementById('resetPass'); if(e) setTimeout(()=>e.focus(),40); }
+async function doForgot(){
+  const email=(document.getElementById('forgotEmail').value||'').trim();
+  const err=document.getElementById('forgotErr'); err.textContent='';
+  if(!email){ err.textContent='Enter your email.'; return; }
+  const btn=document.getElementById('forgotBtn'); btn.disabled=true; btn.textContent='Sending\u2026';
+  try{
+    if(!sb) sb=window.supabase.createClient(cfg.url,cfg.key);
+    const redirectTo=location.origin+location.pathname+'?reset';
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
+    if(error) throw error;
+    document.getElementById('viewForgot').innerHTML='<div class="login-sub">Check your email</div><div class="login-ok">If an account exists for '+esc(email)+', a password-reset link is on its way. Open it on this device, then set a new password.</div><div class="login-link"><a href="#" onclick="location.href=location.pathname;return false;">&larr; Back to sign in</a></div>';
+  }catch(e){
+    btn.disabled=false; btn.textContent='Send reset link';
+    err.textContent='Could not send reset email. Please try again.';
+  }
+}
+async function doReset(){
+  const p1=document.getElementById('resetPass').value||'';
+  const p2=document.getElementById('resetPass2').value||'';
+  const err=document.getElementById('resetErr'); err.textContent='';
+  if(p1.length<6){ err.textContent='Password must be at least 6 characters.'; return; }
+  if(p1!==p2){ err.textContent='Passwords do not match.'; return; }
+  const btn=document.getElementById('resetBtn'); btn.disabled=true; btn.textContent='Saving\u2026';
+  try{
+    if(!sb) sb=window.supabase.createClient(cfg.url,cfg.key);
+    const {error}=await sb.auth.updateUser({password:p1});
+    if(error) throw error;
+    document.getElementById('viewReset').innerHTML='<div class="login-sub">Password updated</div><div class="login-ok">Your password has been changed. You can now sign in.</div><button class="login-btn" style="margin-top:14px" onclick="location.href=location.pathname">Go to sign in</button>';
+  }catch(e){
+    btn.disabled=false; btn.textContent='Save new password';
+    err.textContent='Could not update password. The reset link may have expired \u2014 request a new one.';
+  }
 }
 function showLoginGate(msg){
   document.body.classList.add('locked');
