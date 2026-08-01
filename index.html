@@ -1456,6 +1456,7 @@ function scheduleCloudSave(){
 }
 async function cloudSaveNow(){
   if(!online) return;
+  if(projectIsBlank(project)) return; // blank proposals never get saved to the team cloud
   try{
     // Customer-owned fields live in the database and must survive staff saves:
     // views (link opens), approval (signature!), decline. Pull them in before upserting
@@ -1706,9 +1707,13 @@ function renderDeclinedConfirmation(p){
       <p style="color:#888;font-size:13px;margin-top:18px">Your note has been sent to our team.</p>
     </div></div>`;
 }
+function projectIsBlank(p){
+  return !(p.customer||'').trim() && !(p.number||'').trim() && !(p.address||'').trim() && !p.options.some(o=>(o.lines||[]).length);
+}
 async function newProposalPrompt(){
-  const hasContent = (project.customer||'').trim() || project.options.some(o=>o.lines.length);
-  if(hasContent && !await appConfirm('Start a new proposal?','Your current one is already saved and can be reopened anytime from Saved proposals.','Start new')) return;
+  readProjectMeta();
+  if(projectIsBlank(project)){ toast('This proposal is still blank \u2014 just start building'); return; }
+  if(!await appConfirm('Start a new proposal?','Your current one is already saved and can be reopened anytime from Saved proposals.','Start new')) return;
   cloudSaveNow(); // make sure current is stored before leaving it
   project = newProject(); activeOpt=0; lput(K_QUOTE,project);
   fillProjectMeta(); renderOptTabs(); renderQuote(); toast('New proposal started');
