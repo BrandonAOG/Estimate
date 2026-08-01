@@ -874,17 +874,18 @@ let catalog=[], project=null, sb=null, online=false, activeCat='All', activeOpt=
 const MAX_OPTIONS=5;
 const OPT_NAMES=['Option A','Option B','Option C','Option D','Option E'];
 function newOption(name){return {name:name||'Option A',recommended:false,lines:[],discType:'pct',discVal:0};}
-function newProject(){return {id:'p'+Math.random().toString(36).slice(2,10),customer:'',address:'',number:'',date:today(),updated:Date.now(),showCompare:true,showDetail:true,options:[newOption('Option A')]};}
+function newProject(){return {id:'p'+rid(16),customer:'',address:'',number:'',date:today(),updated:Date.now(),showCompare:true,showDetail:true,options:[newOption('Option A')]};}
 function curOpt(){return project.options[activeOpt];}
 let cfg = load(K_CFG,{url:SUPABASE_URL,key:SUPABASE_KEY});
 function load(k,fb){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch(e){return fb;}}
 function lput(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-function id(){return 'i'+Math.random().toString(36).slice(2,9);}
+function rid(n){const a=new Uint8Array(n);crypto.getRandomValues(a);const c='abcdefghijklmnopqrstuvwxyz0123456789';return Array.from(a,b=>c[b%36]).join('');}
+function id(){return 'i'+rid(8);}
 function today(){return new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
 function money(n){return '$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function val(id){return document.getElementById(id).value;}
 function setv(id,v){document.getElementById(id).value=v;}
-function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 /* ================= INIT ================= */
 async function init(){
@@ -988,7 +989,7 @@ async function doLogout(){
 async function startBuilder(){
   project = load(K_QUOTE,null) || newProject();
   if(!project.options || !project.options.length) project = newProject();
-  if(!project.id) project.id='p'+Math.random().toString(36).slice(2,10);
+  if(!project.id) project.id='p'+rid(16);
   activeOpt = Math.min(activeOpt, project.options.length-1);
   if(cfg.url && cfg.key && window.supabase){
     try{
@@ -1029,7 +1030,7 @@ function renderTabs(){
   const cats=Object.keys(counts).sort();
   const all=[['All',catalog.length]].concat(cats.map(c=>[c,counts[c]]));
   document.getElementById('catTabs').innerHTML=all.map(([c,n])=>
-    `<button class="cat-tab ${activeCat===c?'active':''}" onclick="setCat('${c.replace(/'/g,"\\'")}')">${esc(c)}<span class="n">${n}</span></button>`).join('');
+    `<button class="cat-tab ${activeCat===c?'active':''}" data-cat="${esc(c)}" onclick="setCat(this.dataset.cat)">${esc(c)}<span class="n">${n}</span></button>`).join('');
   // refresh datalist for the add/edit form
   document.getElementById('catList').innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
 }
@@ -1219,9 +1220,9 @@ async function initApprovalView(pid){
   if(!(cfg.url&&cfg.key&&window.supabase)){ host.innerHTML='<div class="av-msg">This link can\u2019t load right now. Please contact Always On Generators.</div>'; return; }
   try{
     sb=window.supabase.createClient(cfg.url,cfg.key);
-    const {data,error}=await sb.from('proposals').select('*').eq('id',pid).single();
+    const {data,error}=await sb.rpc('get_proposal',{pid:pid});
     if(error||!data){ throw error||new Error('not found'); }
-    AV.proposal=data.data||null;
+    AV.proposal=data||null;
     if(!AV.proposal){ throw new Error('empty'); }
     // if already approved, show confirmation
     if(AV.proposal.approval && AV.proposal.approval.approved){
@@ -1361,7 +1362,8 @@ async function submitApproval(pid){
   p.approval={ approved:true, name, option:(p.options[AV.selected]||{}).name||'', optionIndex:AV.selected, signature:sig, at:new Date().toISOString() };
   const btn=document.getElementById('avApproveBtn'); btn.disabled=true; btn.textContent='Submitting\u2026';
   try{
-    await sb.from('proposals').upsert({ id:pid, customer:p.customer||'', number:p.number||'', updated:new Date().toISOString(), data:p });
+    const {data:ok,error}=await sb.rpc('submit_decision',{pid:pid, decision:{approval:p.approval}});
+    if(error||!ok) throw error||new Error('rejected');
     renderApprovedConfirmation(p);
   }catch(e){ btn.disabled=false; btn.textContent='Approve this proposal'; toast('Could not submit \u2014 please try again'); }
 }
@@ -1390,7 +1392,8 @@ async function submitDecline(pid){
   p.decline={ declined:true, reason:AV_reason||'(not specified)', note, option:(p.options[AV.selected]||{}).name||'', at:new Date().toISOString() };
   const btn=document.getElementById('avDeclineSend'); btn.disabled=true; btn.textContent='Sending\u2026';
   try{
-    await sb.from('proposals').upsert({ id:pid, customer:p.customer||'', number:p.number||'', updated:new Date().toISOString(), data:p });
+    const {data:ok,error}=await sb.rpc('submit_decision',{pid:pid, decision:{decline:p.decline}});
+    if(error||!ok) throw error||new Error('rejected');
     renderDeclinedConfirmation(p);
   }catch(e){ btn.disabled=false; btn.textContent='Send & request a call'; toast('Could not send \u2014 please try again'); }
 }
