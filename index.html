@@ -581,6 +581,10 @@
         </select>
         <button class="btn btn-sm" onclick="exportBackup()" title="Download a backup file of all proposals and your catalog">Export backup</button>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;margin:-4px 0 10px;font-size:13px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--ink-soft)"><input type="checkbox" id="selAll" onchange="toggleSelAll(this.checked)"> Select all (skips approved)</label>
+        <button class="btn-danger btn-sm" id="delSelBtn" style="display:none" onclick="deleteSelected()">Delete selected (<span id="selCount">0</span>)</button>
+      </div>
       <div id="savedList" style="max-height:52vh;overflow:auto"></div>
     </div>
     <div class="modal-foot">
@@ -1842,6 +1846,7 @@ function renderSavedList(){
       ? ` &middot; <span style="color:#0a58c2;font-weight:700">Viewed ${vw.n}\u00d7${vw.last?' \u00b7 last '+new Date(vw.last).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):''}</span>`
       : ` &middot; <span style="color:#a08a4f;font-weight:700">Not viewed yet</span>`):'';
     return `<div class="saved-row">
+      <input type="checkbox" class="sel-box" data-id="${esc(r.id)}" data-ap="${ap?1:0}" onchange="updateSelUI()" style="width:18px;height:18px;flex:0 0 auto;margin-right:2px;accent-color:#d84343">
       <div class="saved-main">
         <div class="saved-name">${esc(r.customer||'(no name)')}${r.number?' &middot; #'+esc(r.number):''}${badge}</div>
         <div class="saved-meta">${opts} option${opts===1?'':'s'} &middot; up to ${money(total)} &middot; saved ${when}${apMeta}${viewMeta}</div>
@@ -1853,6 +1858,7 @@ function renderSavedList(){
       </div>
     </div>`;
   }).join('');
+  updateSelUI();
 }
 function viewSignature(pid){
   const r=savedCache.find(x=>x.id===pid);
@@ -1881,6 +1887,32 @@ function openProposal(pid){
   activeOpt=0; lput(K_QUOTE,project);
   fillProjectMeta(); renderOptTabs(); renderQuote();
   closeSaved(); toast('Opened '+(project.customer||'proposal'));
+}
+function selBoxes(){ return [...document.querySelectorAll('#savedList .sel-box')]; }
+function toggleSelAll(on){
+  selBoxes().forEach(b=>{ b.checked = on && b.dataset.ap!=='1'; });   // select-all skips approved (signed records)
+  updateSelUI();
+}
+function updateSelUI(){
+  const cnt=document.getElementById('selCount'); if(!cnt) return;
+  const n=selBoxes().filter(b=>b.checked).length;
+  cnt.textContent=n;
+  document.getElementById('delSelBtn').style.display=n?'inline-block':'none';
+}
+async function deleteSelected(){
+  const picked=selBoxes().filter(b=>b.checked);
+  if(!picked.length) return;
+  const ids=picked.map(b=>b.dataset.id);
+  const nAp=picked.filter(b=>b.dataset.ap==='1').length;
+  const warn=nAp?('<br><span style="color:#c0392b;font-weight:700">'+nAp+' of these are APPROVED (signed) proposals \u2014 business records you may want to keep.</span>'):'';
+  const typed=await appDialog({title:'Delete '+ids.length+' proposal'+(ids.length===1?'':'s')+'?',
+    msg:'This removes them for the whole team and cannot be undone. Their approval links will stop working.'+warn+'<br><span style="color:var(--ink-soft);font-size:13px">Tip: Export backup first if you haven\u2019t.</span>',
+    label:'Type <b style="color:var(--amber-deep)">Alwayson1</b> to confirm', input:'', mustType:'Alwayson1', okText:'Delete '+ids.length, danger:true});
+  if(typed===null) return;
+  if(online){ try{ await sb.from('proposals').delete().in('id',ids); }catch(e){} }
+  savedCache=savedCache.filter(x=>!ids.includes(x.id));
+  const sa=document.getElementById('selAll'); if(sa) sa.checked=false;
+  renderSavedList(); toast(ids.length+' deleted');
 }
 async function deleteProposal(pid){
   const r=savedCache.find(x=>x.id===pid);
