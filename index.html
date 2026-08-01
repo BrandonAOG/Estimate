@@ -152,17 +152,40 @@
   .av-sign input[type=text]{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:8px;font-size:15px;font-family:inherit;margin-bottom:16px}
   .av-sign input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.15)}
   .sigpad-wrap{position:relative}
-  #sigpad{width:100%;height:150px;border:2px dashed var(--line);border-radius:8px;background:#fff;touch-action:none;cursor:crosshair}
-  .sig-clear{position:absolute;top:8px;right:8px;font-size:12px;padding:4px 9px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink-soft);cursor:pointer}
+  #sigpad{width:100%;height:180px;border:2px dashed var(--line);border-radius:8px;background:#fff;touch-action:none;cursor:crosshair;display:block}
+  .sig-clear{position:absolute;top:8px;right:8px;font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink-soft);cursor:pointer;min-height:34px}
+  .sig-hint{position:absolute;left:0;right:0;bottom:26px;text-align:center;color:#cfcfcf;font-size:13px;pointer-events:none;font-style:italic}
+  .sig-line{position:absolute;left:16px;right:16px;bottom:22px;border-bottom:1px solid #e0e0e0;pointer-events:none}
   .av-approve{padding:22px 30px 30px;border-top:1px solid var(--line-soft)}
   .av-approve .terms{font-size:12px;color:var(--ink-soft);margin-bottom:14px;line-height:1.5}
-  .btn-approve{width:100%;background:var(--green);color:#fff;font-size:17px;font-weight:800;padding:16px;border-radius:10px}
+  .btn-approve{width:100%;background:var(--green);color:#fff;font-size:17px;font-weight:800;padding:16px;border-radius:10px;min-height:56px}
   .btn-approve:hover{background:#256628}
   .btn-approve:disabled{opacity:.45;cursor:not-allowed}
   .av-done{text-align:center;padding:50px 30px}
   .av-done .big{font-size:26px;font-weight:800;color:var(--green)}
   .av-done .chk{font-size:52px}
   .av-msg{text-align:center;padding:60px 20px;color:var(--ink-soft)}
+  /* ---- Mobile tuning for the customer approval view ---- */
+  @media(max-width:560px){
+    body.approve-mode #approveView{padding:0 10px 48px}
+    .av-card{margin-top:12px;border-radius:12px}
+    .av-doc{padding:16px 16px}
+    .av-optpick{padding:16px 16px}
+    .av-opt{padding:16px 14px}
+    .av-opt .nm{font-size:15px}
+    .av-opt .pr{font-size:16px}
+    .av-sign{padding:18px 16px}
+    .av-sign input[type=text]{font-size:16px;padding:13px 14px}  /* 16px prevents iOS auto-zoom */
+    .av-approve{padding:18px 16px 26px}
+    #sigpad{height:190px}
+    .av-doc .p-head{flex-direction:column;gap:10px}
+    .av-doc .p-meta{text-align:left}
+    .av-doc .p-hero{font-size:19pt}
+    .av-doc .p-scope td,.av-doc .p-scope th{padding:7px 8px;font-size:12px}
+    .av-doc .p-scope .ds{font-size:11px}
+    .av-doc .p-tot{width:100%;margin-left:0}
+    .av-doc .p-banner{font-size:13px;padding:8px 12px}
+  }
   .hint{font-size:12.5px;color:var(--ink-soft);line-height:1.6;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px;margin-bottom:14px}
   .hint b{color:var(--ink)} .hint ol{margin:8px 0 0;padding-left:18px}
   .hint code{background:#fff;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
@@ -987,6 +1010,8 @@ function renderApprovalView(pid){
         <label>Signature</label>
         <div class="sigpad-wrap">
           <canvas id="sigpad"></canvas>
+          <div class="sig-line"></div>
+          <div class="sig-hint" id="sigHint">Sign here with your finger</div>
           <button class="sig-clear" onclick="clearSig()">Clear</button>
         </div>
       </div>
@@ -1028,22 +1053,36 @@ function renderAvDoc(){
     <div class="p-tot"><div class="r"><span>Subtotal</span><span>${money(t.sub)}</span></div>${discRow}
     <div class="grand"><span>Your Total</span><span>${money(t.total)}</span></div></div>`;
 }
-let sigCtx=null;
+let sigCtx=null, sigCanvas=null;
 function setupSigpad(){
   const c=document.getElementById('sigpad'); if(!c)return;
-  const ratio=window.devicePixelRatio||1;
-  const rect=c.getBoundingClientRect();
-  c.width=rect.width*ratio; c.height=rect.height*ratio;
-  sigCtx=c.getContext('2d'); sigCtx.scale(ratio,ratio); sigCtx.lineWidth=2.2; sigCtx.lineCap='round'; sigCtx.strokeStyle='#1a1a1a';
+  sigCanvas=c;
+  fitSigpad();
   let drawing=false,last=null;
   const pos=e=>{const r=c.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return {x:t.clientX-r.left,y:t.clientY-r.top};};
-  const start=e=>{drawing=true;last=pos(e);e.preventDefault();};
+  const start=e=>{drawing=true;last=pos(e);const h=document.getElementById('sigHint');if(h)h.style.display='none';e.preventDefault();};
   const move=e=>{if(!drawing)return;const p=pos(e);sigCtx.beginPath();sigCtx.moveTo(last.x,last.y);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();last=p;AV.sigDrawn=true;checkAvReady();e.preventDefault();};
   const end=()=>{drawing=false;};
   c.onmousedown=start;c.onmousemove=move;window.addEventListener('mouseup',end);
-  c.ontouchstart=start;c.ontouchmove=move;c.ontouchend=end;
+  c.addEventListener('touchstart',start,{passive:false});
+  c.addEventListener('touchmove',move,{passive:false});
+  c.addEventListener('touchend',end,{passive:false});
+  // refit if the phone rotates
+  window.addEventListener('resize',()=>{ if(document.body.classList.contains('approve-mode')) fitSigpad(true); });
 }
-function clearSig(){ if(sigCtx){const c=document.getElementById('sigpad');sigCtx.clearRect(0,0,c.width,c.height);AV.sigDrawn=false;checkAvReady();} }
+function fitSigpad(preserve){
+  const c=sigCanvas; if(!c)return;
+  let prev=null;
+  if(preserve && AV.sigDrawn){ try{prev=c.toDataURL();}catch(e){} }
+  const ratio=window.devicePixelRatio||1;
+  const rect=c.getBoundingClientRect();
+  if(rect.width===0)return;
+  c.width=Math.round(rect.width*ratio); c.height=Math.round(rect.height*ratio);
+  sigCtx=c.getContext('2d'); sigCtx.scale(ratio,ratio);
+  sigCtx.lineWidth=2.4; sigCtx.lineCap='round'; sigCtx.lineJoin='round'; sigCtx.strokeStyle='#1a1a1a';
+  if(prev){ const img=new Image(); img.onload=()=>sigCtx.drawImage(img,0,0,rect.width,rect.height); img.src=prev; }
+}
+function clearSig(){ if(sigCtx&&sigCanvas){sigCtx.clearRect(0,0,sigCanvas.width,sigCanvas.height);AV.sigDrawn=false;const h=document.getElementById('sigHint');if(h)h.style.display='';checkAvReady();} }
 function checkAvReady(){
   const nameOk=(document.getElementById('avName').value||'').trim().length>1;
   const btn=document.getElementById('avApproveBtn');
