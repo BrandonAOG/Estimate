@@ -1,7 +1,7 @@
 // Always On Quote Builder — service worker
 // Version + release notes shown to the user in the update banner.
-const SW_VERSION = '2.1.0';
-const SW_NOTES = 'Staff profiles, view tracking, bulk delete with checkboxes, typed delete confirmations, sorting and backup exports, safer saves that protect signatures.';
+const SW_VERSION = '2.1.1';
+const SW_NOTES = 'Fixes the delete confirmation so the "type Alwayson1" instruction is always visible.';
 const CACHE = 'aog-shell-v' + SW_VERSION;
 
 self.addEventListener('install', e => {
