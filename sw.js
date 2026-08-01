@@ -1,7 +1,7 @@
 // Always On Quote Builder — service worker
 // Version + release notes shown to the user in the update banner.
-const SW_VERSION = '2.0.0';
-const SW_NOTES = 'Installable app with offline mode, mobile action bar, swipe-to-delete with confirmation, safer shared-catalog deletes, logo and proposal upgrades.';
+const SW_VERSION = '2.1.0';
+const SW_NOTES = 'Staff profiles, view tracking, bulk delete with checkboxes, typed delete confirmations, sorting and backup exports, safer saves that protect signatures.';
 const CACHE = 'aog-shell-v' + SW_VERSION;
 
 self.addEventListener('install', e => {
