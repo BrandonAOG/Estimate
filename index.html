@@ -988,7 +988,15 @@ function renderApprovalView(pid){
   renderAvDoc();
   setupSigpad();
 }
-function selectAvOpt(i){ AV.selected=i; renderApprovalView(location.search.match(/approve=([^&]+)/)[1]); }
+function selectAvOpt(i){
+  AV.selected=i;
+  // update selection highlight + radios without a full re-render (which would reset selection)
+  document.querySelectorAll('.av-opt').forEach((el,idx)=>{
+    el.classList.toggle('sel',idx===i);
+    const r=el.querySelector('input'); if(r) r.checked=(idx===i);
+  });
+  renderAvDoc();
+}
 function renderAvDoc(){
   // reuse the print builder look by temporarily rendering into avDoc
   const p=AV.proposal;
@@ -1102,10 +1110,13 @@ function renderSavedList(){
     const when=r.updated?new Date(r.updated).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
     let total=0;
     (d.options||[]).forEach(o=>{ const s=(o.lines||[]).reduce((x,l)=>x+l.price*l.qty,0); let ds=o.discType==='pct'?s*((o.discVal||0)/100):(o.discVal||0); total=Math.max(total,s-Math.min(ds,s)); });
+    const ap=d.approval&&d.approval.approved;
+    const badge=ap?`<span style="display:inline-block;background:#eaf3ea;color:#2e7d32;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:8px">&#10003; APPROVED</span>`:'';
+    const apMeta=ap?` &middot; <span style="color:#2e7d32;font-weight:600">${esc(d.approval.option||'')} signed by ${esc(d.approval.name||'')}</span>`:'';
     return `<div class="saved-row">
       <div class="saved-main">
-        <div class="saved-name">${esc(r.customer||'(no name)')}${r.number?' &middot; #'+esc(r.number):''}</div>
-        <div class="saved-meta">${opts} option${opts===1?'':'s'} &middot; up to ${money(total)} &middot; saved ${when}</div>
+        <div class="saved-name">${esc(r.customer||'(no name)')}${r.number?' &middot; #'+esc(r.number):''}${badge}</div>
+        <div class="saved-meta">${opts} option${opts===1?'':'s'} &middot; up to ${money(total)} &middot; saved ${when}${apMeta}</div>
       </div>
       <div class="saved-actions">
         <button class="btn-amber btn-sm" onclick="openProposal('${r.id}')">Open</button>
@@ -1364,7 +1375,8 @@ let tT;function toast(msg){const t=document.getElementById('toast');t.textConten
 document.getElementById('itemModal').addEventListener('click',e=>{if(e.target.id==='itemModal')closeItemModal();});
 document.getElementById('connectModal').addEventListener('click',e=>{if(e.target.id==='connectModal')closeConnect();});
 document.getElementById('savedModal').addEventListener('click',e=>{if(e.target.id==='savedModal')closeSaved();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();}});
+document.getElementById('shareModal').addEventListener('click',e=>{if(e.target.id==='shareModal')closeShare();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();closeShare();}});
 init();
 </script>
 </body>
