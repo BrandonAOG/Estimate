@@ -1720,8 +1720,8 @@ function buildPrintDoc(){
         ${qrSvg?`<div style="background:#fff;padding:5px;border:1px solid #ddd;border-radius:6px">${qrSvg}</div>`:''}
         <div>
           <div style="font-weight:800;font-size:10.5pt">Approve online in under a minute</div>
-          <div style="font-size:9pt;color:#444;margin-top:2px">Scan the code with your phone camera, or visit:</div>
-          <div style="font-size:8.5pt;color:#0a58c2;word-break:break-all;margin-top:2px">${esc(plink)}</div>
+          <div style="font-size:9pt;color:#444;margin-top:2px">Scan the code with your phone camera, or tap the link:</div>
+          <div style="margin-top:2px"><a href="${esc(plink)}" style="font-size:8.5pt;color:#0a58c2;word-break:break-all;text-decoration:underline">${esc(plink)}</a></div>
         </div>
       </div>`;
   }
