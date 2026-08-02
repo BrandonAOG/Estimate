@@ -520,7 +520,16 @@
     <div class="catalog-col">
       <div class="panel">
         <div class="panel-head"><h2>Catalog</h2><span class="count" id="catCount">0 items</span></div>
-        <div class="cat-search"><input id="search" placeholder="Search all items&hellip;" oninput="renderCatalog()"></div>
+        <div class="cat-search" style="display:flex;gap:8px">
+          <input id="search" placeholder="Search all items&hellip;" oninput="renderCatalog()" style="flex:1;min-width:0">
+          <select id="catSort" onchange="renderCatalog()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);flex:0 0 auto">
+            <option value="default">Default order</option>
+            <option value="name">Name A&ndash;Z</option>
+            <option value="brand">Brand</option>
+            <option value="priceLow">Price: low&rarr;high</option>
+            <option value="priceHigh">Price: high&rarr;low</option>
+          </select>
+        </div>
         <div class="cat-tabs" id="catTabs"></div>
         <div class="panel-body" id="catalogList"></div>
       </div>
@@ -1269,6 +1278,17 @@ function renderCatalog(){
   const list=document.getElementById('catalogList');
   let items=catalog.filter(it=>!q||(it.name+' '+(it.desc||'')+' '+(it.cat||'')).toLowerCase().includes(q));
   if(activeCat!=='All') items=items.filter(it=>(it.cat||'Uncategorized')===activeCat);
+  const sortMode=val('catSort')||'default';
+  if(sortMode!=='default'){
+    items=[...items];
+    if(sortMode==='name') items.sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+    else if(sortMode==='brand') items.sort((a,b)=>{
+      const bw=s=>(s.trim().split(/\s+/)[0]||'').toLowerCase();
+      return bw(a.name).localeCompare(bw(b.name)) || a.name.localeCompare(b.name,undefined,{sensitivity:'base'});
+    });
+    else if(sortMode==='priceLow') items.sort((a,b)=>(a.price||0)-(b.price||0));
+    else if(sortMode==='priceHigh') items.sort((a,b)=>(b.price||0)-(a.price||0));
+  }
   document.getElementById('catCount').textContent=catalog.length+' item'+(catalog.length===1?'':'s');
   if(!items.length){list.innerHTML='<div class="empty"><b>No items found</b>Try another category or search, or add one up top.</div>';return;}
   const row=it=>`
