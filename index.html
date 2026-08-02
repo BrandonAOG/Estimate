@@ -2421,7 +2421,22 @@ function fullDocHtml(project, o2){
         <td><div class="nm">${esc(l.name)}</div>${l.desc?`<div class="ds">${esc(l.desc)}</div>`:''}</td>
         <td class="pr">${money(l.price*l.qty)}</td></tr>`).join('');
       const kw=kwOf(o);
-      const totalLabel = kw?('YOUR TOTAL ('+kw+')'):'YOUR TOTAL';
+      // Rich total label: quantity + brand + KW + tank size, all pulled from the line items
+      const genL=(o.lines||[]).find(l=>/(\d+(?:\.\d+)?)\s*kw/i.test(l.name||''));
+      let sysDesc='';
+      if(genL){
+        const qty=(genL.qty||1)>1 ? (genL.qty+'\u00d7 ') : '';
+        const brand=(genL.name||'').trim().split(/\s+/)[0]||'';
+        const brandNice=brand? brand.charAt(0).toUpperCase()+brand.slice(1).toLowerCase() : '';
+        sysDesc=qty+(brandNice?brandNice+' ':'')+(kw||'');
+      } else if(kw){ sysDesc=kw; }
+      const tankL=(o.lines||[]).find(l=>/(\d+)\s*gal/i.test(l.name||'') && /tank/i.test(l.name||''));
+      if(tankL){
+        const gm=(tankL.name||'').match(/(\d+)\s*gal/i);
+        const tq=(tankL.qty||1)>1 ? (tankL.qty+'\u00d7 ') : '';
+        if(gm) sysDesc+=(sysDesc?' \u00b7 ':'')+tq+gm[1]+' Gal Tank';
+      }
+      const totalLabel = sysDesc?('YOUR TOTAL ('+sysDesc.trim()+')'):'YOUR TOTAL';
       const savingsLine = t.savings>0 ? `<div class="pi-save">You&rsquo;re saving nearly ${money(Math.round(t.savings/100)*100)} off the standard price on the ${kw||esc(o.name||'this')} system.</div>` : '';
       const discRowsHtml = (t.discounts||[]).filter(d=>d.amt>0).map(d=>`<div class="pi-row disc"><span>${esc(d.label||'Discount')}</span><span>&ndash; ${money(d.amt)}</span></div>`).join('');
       return `
