@@ -59,7 +59,7 @@
   .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}.btn-ghost:hover{border-color:var(--ink)}
   .btn-sm{padding:6px 10px;font-size:13px;border-radius:6px}
   .btn-danger{background:transparent;color:var(--red);border:1px solid #f0d6d2}.btn-danger:hover{background:#fdecea}
-  .grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;margin-top:24px;align-items:start}
+  .grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:24px;margin-top:24px;align-items:start}
   .catalog-col,.quote-col{min-width:0}
   .panel{min-width:0}
   @media(max-width:900px){.grid{grid-template-columns:1fr}}
@@ -117,8 +117,14 @@
   #adLabel{display:block!important}
   .field input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit}
   .field input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.15)}
-  .line{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
-  .line-name{flex:1;min-width:0}
+  .line{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+  .line-stacked{display:block}
+  .line-stacked .line-name{width:100%}
+  .line-stacked .name-edit{width:100%}
+  .line-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+  .line-controls-r{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .line-controls .p{margin:0}
+  .line-name{flex:1 1 auto;min-width:0}
   .line-name .n{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .line-name .p{font-size:11px;color:var(--ink-soft)}
   .name-edit{width:100%;border:1px solid transparent;border-radius:5px;padding:3px 5px;font-size:13px;font-weight:600;font-family:inherit;color:var(--ink);background:transparent;margin-bottom:1px}
@@ -134,7 +140,8 @@
   .price-edit:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 2px rgba(244,180,0,.15)}
   .price-edit.changed{border-color:var(--amber-deep);background:#fff8e6;font-weight:700;color:var(--ink)}
   .ovr{color:var(--amber-deep);font-weight:700}
-  .sync-box{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-soft);cursor:pointer;user-select:none}
+  .sync-box{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.2px;color:var(--ink-soft);cursor:pointer;user-select:none;flex:0 0 auto}
+  .sync-box span{font-size:8px}
   .sync-box input{cursor:pointer;margin:0}
   .sync-box input:disabled{cursor:not-allowed}
   .qty{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;overflow:hidden}
@@ -142,7 +149,7 @@
   .qty button:hover{background:var(--line)}
   .qty input{width:34px;text-align:center;border:none;font-size:13px;font-family:inherit;padding:0;height:28px}
   .qty input:focus{outline:none}
-  .line-total{width:82px;text-align:right;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+  .line-total{width:66px;text-align:right;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;flex:0 0 auto}
   .line-x{background:transparent;border:none;color:var(--ink-soft);font-size:16px;padding:2px 4px;border-radius:5px}
   .line-x:hover{color:var(--red);background:#fdecea}
   .totals{padding:14px 16px;border-top:2px solid var(--ink)}
@@ -573,7 +580,7 @@
       <div class="field"><label>Model # (optional &mdash; shows on the comparison table)</label><input id="fModel" placeholder="e.g. NEXT-GEN 7327"></div>
       <div class="row2">
         <div class="field"><label>Your price ($)</label><input id="fPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
-        <div class="field"><label>Category</label><input id="fCat" list="catList" placeholder="Generators, Gas Services&hellip;"><datalist id="catList"></datalist></div>
+        <div class="field"><label>Category</label><input id="fCat" list="catList" placeholder="Generators, Gas Services&hellip;" autocomplete="off" onfocus="catFocus(this)" onblur="catBlur(this)"><datalist id="catList"></datalist></div>
       </div>
       <div class="modal-note"><b>This is the master price book.</b> Saving here changes the standard price for this item${''} everywhere. To charge one customer a different price, don't edit here &mdash; just type the new price on that item's line in the estimate (that stays with that quote only).</div>
     </div>
@@ -1239,7 +1246,7 @@ function renderTabs(){
   document.getElementById('catList').innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
 }
 function setCat(c){activeCat=c;renderTabs();renderCatalog();}
-function openRenameCat(){
+function openRenameCat(){ fillCatList();
   if(activeCat==='All') return;
   const n=catalog.filter(it=>(it.cat||'Uncategorized')===activeCat).length;
   document.getElementById('rcCount').textContent=n+' item'+(n===1?'':'s');
@@ -2065,16 +2072,20 @@ function renderQuote(){
     const descEdited = cat && (cat.desc||'')!==(l.desc||'');
     return `
     <div class="line-wrap"><button class="swipe-del-btn" onclick="removeLine(${i})">Delete</button>
-    <div class="line">
+    <div class="line line-stacked">
       <div class="line-name">
         <input class="name-edit${nameEdited?' changed':''}" value="${esc(l.name)}" onchange="setName(${i},this.value)" title="Item name for this estimate only">
         <textarea class="desc-edit${descEdited?' changed':''}" rows="1" placeholder="Add a description (optional)" oninput="autoGrow(this)" onchange="setDesc(${i},this.value)" title="Description for this estimate only">${esc(l.desc||'')}</textarea>
-        <div class="p">$<input class="price-edit${overridden?' changed':''}" value="${(Number(l.price)||0).toFixed(2)}" onchange="setPrice(${i},this.value)" title="Price for this estimate only"> each${overridden||nameEdited||descEdited?' <span class="ovr">(custom)</span>':''}</div>
       </div>
-      <div class="qty"><button onclick="bump(${i},-1)">&minus;</button><input value="${l.qty}" onchange="setQty(${i},this.value)"><button onclick="bump(${i},1)">+</button></div>
-      <div class="line-total">${money(l.price*l.qty)}</div>
-      <label class="sync-box" title="${online?'Also update this price in the shared catalog for everyone':'Sync is only available in Team online mode'}"><input type="checkbox" ${l.sync?'checked':''} ${!online?'disabled':''} onchange="toggleSync(${i},this.checked)"><span>Sync</span></label>
-      <button class="line-x" title="Remove" onclick="removeLine(${i})">&times;</button>
+      <div class="line-controls">
+        <div class="p">$<input class="price-edit${overridden?' changed':''}" value="${(Number(l.price)||0).toFixed(2)}" onchange="setPrice(${i},this.value)" title="Price for this estimate only"> each${overridden||nameEdited||descEdited?' <span class="ovr">(custom)</span>':''}</div>
+        <div class="line-controls-r">
+          <div class="qty"><button onclick="bump(${i},-1)">&minus;</button><input value="${l.qty}" onchange="setQty(${i},this.value)"><button onclick="bump(${i},1)">+</button></div>
+          <div class="line-total">${money(l.price*l.qty)}</div>
+          <label class="sync-box" title="${online?'Also update this price in the shared catalog for everyone':'Sync is only available in Team online mode'}"><input type="checkbox" ${l.sync?'checked':''} ${!online?'disabled':''} onchange="toggleSync(${i},this.checked)"><span>Sync</span></label>
+          <button class="line-x" title="Remove" onclick="removeLine(${i})">&times;</button>
+        </div>
+      </div>
     </div></div>`;}).join('');
     // size description textareas to their content
     wrap.querySelectorAll('.desc-edit').forEach(autoGrow);
@@ -2110,10 +2121,20 @@ function fillProjectMeta(){
 }
 
 /* ================= ITEM CRUD ================= */
+function fillCatList(){
+  const cats=[...new Set(catalog.map(c=>c.cat||'Uncategorized'))].sort((a,b)=>a.localeCompare(b));
+  const dl=document.getElementById('catList');
+  if(dl) dl.innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
+}
+// Clear the box on focus so the datalist shows ALL categories (not just ones matching current text);
+// restore the previous value on blur if the user didn't pick/type anything.
+function catFocus(el){ el.dataset.prev=el.value; el.value=''; }
+function catBlur(el){ if(!el.value.trim() && el.dataset.prev) el.value=el.dataset.prev; }
 function openItemModal(editId){
   setv('editId',editId||'');
   document.getElementById('modalTitle').textContent=editId?'Edit catalog item':'Add catalog item';
   const it=editId?catalog.find(c=>c.id===editId):{name:'',desc:'',price:'',cat:(activeCat!=='All'?activeCat:'')};
+  fillCatList();
   setv('fName',it.name);setv('fDesc',it.desc||'');setv('fModel',it.model||'');setv('fPrice',it.price===0?'':it.price);setv('fCat',it.cat||'');
   document.getElementById('itemModal').classList.add('on');
   setTimeout(()=>document.getElementById('fName').focus(),50);
@@ -2217,6 +2238,17 @@ function fullDocHtml(project, o2){
   const isGen=l=>/(\d+(?:\.\d+)?)\s*kw/i.test(l.name||'');
   const genLine=o=>(o.lines||[]).find(isGen);
   const kwOf=o=>{ for(const l of (o.lines||[])){ const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw/i); if(m) return m[1]+'KW'; } return null; };
+  // Merge same-city permit lines ("Permitting - Marco Island Electrical" + "...Gas")
+  // into one display name for the COMPARISON TABLE only. Returns the display name for a line.
+  const permitInfo=l=>{ const m=(l.name||'').match(/^\s*permit(?:ting)?\s*[-\u2013:]?\s*(.*?)\s*(electrical|electric|gas)\s*$/i); return m?{city:(m[1]||'').trim(),kind:m[2].toLowerCase()}:null; };
+  const permitDisplayName=(l, allLines)=>{
+    const info=permitInfo(l); if(!info) return l.name;
+    // is there a sibling permit with the same city but the other kind?
+    const hasSibling=(allLines||[]).some(x=>{ const pi=permitInfo(x); return pi && pi.city.toLowerCase()===info.city.toLowerCase() && pi.kind!==info.kind; });
+    if(!hasSibling) return l.name;
+    const cityLabel=info.city?('Permitting - '+info.city+' '):'Permitting - ';
+    return cityLabel+'Electrical & Gas';
+  };
   const modelOf=l=>{ if(!l) return '';
     // 1) explicit Model field wins
     if((l.model||'').trim()) return l.model.trim();
@@ -2227,8 +2259,10 @@ function fullDocHtml(project, o2){
     // 3) fallback: text after the kW in the name
     const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw\s*(.*)$/i); return m&&m[2]?m[2].trim():''; };
   // "What's included in your price" — from the recommended option (or the only option)
-  const recIdx = Math.max(0, opts.findIndex(o=>o.recommended));
+  const recIdxReal = opts.findIndex(o=>o.recommended);   // -1 if none checked
+  const recIdx = Math.max(0, recIdxReal);
   const recOpt = opts[recIdx] || opts[0];
+  const hasRec = recIdxReal >= 0;                        // did the user actually mark one?
   let includedHtml='';
   if(recOpt && (recOpt.lines||[]).length){
     const items=recOpt.lines.map(l=>{
@@ -2248,14 +2282,18 @@ function fullDocHtml(project, o2){
   // "Choose your system" comparison table — one row per distinct item, quantities where they differ
   let cmpHtml='';
   if(project.showCompare!==false && opts.length>1){
+    // Build the display-name map per option (merges same-city permits)
+    const dispName=(l,o)=>permitDisplayName(l,o.lines||[]);
     const seen=[], order=[];
-    opts.forEach(o=>(o.lines||[]).forEach(l=>{ if(isGen(l))return; if(!seen.includes(l.name)){seen.push(l.name);order.push(l.name);} }));
+    opts.forEach(o=>(o.lines||[]).forEach(l=>{ if(isGen(l))return; const nm=dispName(l,o); if(!seen.includes(nm)){seen.push(nm);order.push(nm);} }));
     const bodyRows=order.map(name=>{
       const cells=opts.map(o=>{
-        const li=(o.lines||[]).find(l=>l.name===name);
+        // find any line in this option whose display name matches (covers merged permits)
+        const matches=(o.lines||[]).filter(l=>!isGen(l) && dispName(l,o)===name);
         const rec=o.recommended?' reccol':'';
-        if(li){
-          const q=li.qty>1?li.qty+' included':'Included';
+        if(matches.length){
+          const totalQty=matches.reduce((s,l)=>s+(l.qty||1),0);
+          const q=(matches.length===1 && totalQty>1)?totalQty+' included':'Included';
           return `<td class="${rec.trim()}">${q}</td>`;
         }
         return `<td class="${rec.trim()}"><span class="no">&mdash;</span></td>`;
@@ -2318,7 +2356,7 @@ function fullDocHtml(project, o2){
 
     // recommendation caption with auto price delta
     let recCaption='';
-    if(recOpt){
+    if(hasRec && recOpt){
       const others=opts.filter(o=>o!==recOpt);
       const recTot=optTotals(recOpt).total;
       const cheapest=others.length?Math.min(...others.map(o=>optTotals(o).total)):recTot;
