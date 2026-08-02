@@ -149,13 +149,22 @@
   .trow{display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:5px 0}
   .trow .lbl{color:var(--ink-soft)}
   .trow.disc .lbl{color:var(--green)}
-  .disc-input{display:flex;align-items:center;gap:6px}
+  .disc-input{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .lbl-edit{flex:1;min-width:0;border:1px solid transparent;background:transparent;color:var(--green);font-family:inherit;font-size:14px;padding:4px 6px;border-radius:6px;margin-right:6px}
+  .lbl-edit:hover{border-color:var(--line)}
+  .lbl-edit:focus{border-color:var(--green);background:#fff;outline:none}
+  .disc-x{border:none;background:transparent;color:#c0392b;font-size:16px;cursor:pointer;padding:0 4px;line-height:1}
+  .disc-x:hover{color:#a02020}
+  .trow .lbl{min-width:0}
   .disc-input input{width:74px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:inherit;text-align:right}
   .disc-input select{padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px;font-family:inherit;background:#fff}
   .grand{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
   .grand .lbl{font-weight:800;font-size:16px}
   .grand .val{font-weight:800;font-size:24px;font-variant-numeric:tabular-nums}
   .save-note{font-size:11px;color:var(--ink-soft);text-align:center;padding:8px}
+  .save-preview{margin-top:10px;padding:10px 12px;background:#f6faf2;border:1px solid #cfe3c0;border-radius:8px;font-size:13px;color:#3b7d23;line-height:1.4;display:none}
+  .save-preview.on{display:block}
+  .save-preview b{color:#1a1a1a}
   .overlay{position:fixed;inset:0;background:rgba(20,20,20,.4);display:none;place-items:center;z-index:50;padding:20px;overflow:auto}
   .overlay.on{display:grid}
   .modal{background:#fff;border-radius:16px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;margin:auto}
@@ -321,9 +330,9 @@
   .p-meta{text-align:right;font-size:9pt;color:#555}
   .p-meta .big{font-size:13pt;font-weight:800;color:#1a1a1a}
   .p-meta .cust{font-size:11pt;font-weight:700;color:#1a1a1a;margin-top:6px}
-  .p-hero{font-size:24pt;font-weight:800;margin:14px 0 6px;background:#f4b400;color:#1a1a1a;padding:10px 16px;border-radius:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .p-hero{font-size:24pt;font-weight:800;margin:14px 0 6px}
   .p-lede{color:#555;font-size:11pt;margin-bottom:16px}
-  .p-banner{background:#f4b400;color:#1a1a1a;font-weight:700;font-size:12pt;padding:9px 14px;border-radius:2px;margin:14px 0}
+  .p-banner{background:#f4b400;color:#1a1a1a;font-weight:700;font-size:12pt;padding:9px 14px;border-radius:2px;margin:14px 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .p-incl{border:1px solid #cfe0cf;border-left:5px solid #2e7d32;background:#f7faf7;border-radius:6px;padding:14px 16px;margin:14px 0}
   .p-incl h4{margin:0 0 8px;font-size:12pt}
   .p-incl div{font-size:9.5pt;margin:4px 0;padding-left:20px;position:relative;color:#333}
@@ -348,6 +357,12 @@
   .p-cmp .priceRow td{font-weight:800;font-size:9.5pt;border-top:2px solid #1a1a1a}
   .p-cmp .yes{color:#2e7d32;font-weight:700}
   .p-cmp .no{color:#bbb}
+  .p-invest{margin-top:12px;border-top:2px solid #1a1a1a;padding-top:10px}
+  .p-invest .pi-title{font-size:14pt;font-weight:800;margin-bottom:2px}
+  .p-invest .pi-save{color:#777;font-size:10pt;margin-bottom:10px}
+  .p-invest .pi-row{display:flex;justify-content:space-between;padding:5px 0;font-size:10.5pt}
+  .p-invest .pi-row.disc{color:#3b7d23}
+  .p-invest .pi-total{display:flex;justify-content:space-between;padding:10px 0 0;margin-top:4px;border-top:2px solid #1a1a1a;font-size:13pt;font-weight:800}
   .p-optblock{margin-top:22px;page-break-inside:avoid}
   .p-optblock h3{font-size:13pt;margin:0 0 2px}
   .p-optblock .rec-badge{display:inline-block;background:#f4b400;color:#1a1a1a;font-size:8pt;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:8px;vertical-align:middle}
@@ -519,15 +534,16 @@
         <div id="quoteLines"></div>
         <div class="totals">
           <div class="trow"><span class="lbl">Subtotal</span><span class="val" id="subtotal">$0.00</span></div>
+          <div id="discRows"></div>
+          <button class="btn-ghost btn-sm" onclick="addDiscount()" style="margin:4px 0 2px">+ Add discount</button>
           <div class="trow disc">
-            <span class="lbl">Discount</span>
+            <span class="lbl">Savings shown <span style="font-weight:400;color:#999;font-size:11px">(optional — blank = auto)</span></span>
             <span class="disc-input">
-              <select id="discType" onchange="renderQuote()"><option value="pct">%</option><option value="flat">$</option></select>
-              <input id="discVal" type="number" min="0" step="0.01" value="0" oninput="renderQuote()">
-              <span class="val" id="discAmt" style="width:74px;text-align:right">&ndash;$0.00</span>
+              <input id="saveOverride" type="number" min="0" step="0.01" value="0" oninput="renderQuote()" placeholder="auto">
             </span>
           </div>
           <div class="grand"><span class="lbl">This option's total</span><span class="val" id="grandTotal">$0.00</span></div>
+          <div id="savePreview" class="save-preview"></div>
         </div>
         <div style="padding:12px 16px;border-top:1px solid var(--line-soft)">
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-soft);margin-bottom:8px">Printed proposal options</div>
@@ -1051,7 +1067,7 @@ const K_CAT='aog_catalog_v4', K_QUOTE='aog_project_v4', K_CFG='aog_cfg_v4';
 let catalog=[], project=null, sb=null, online=false, activeCat='All', activeOpt=0;
 const MAX_OPTIONS=5;
 const OPT_NAMES=['Option A','Option B','Option C','Option D','Option E'];
-function newOption(name){return {name:name||'Option A',recommended:false,lines:[],discType:'pct',discVal:0};}
+function newOption(name){return {name:name||'Option A',recommended:false,lines:[],discounts:[{label:'Cash & check discount',type:'pct',val:0}],saveOverride:0};}
 function newProject(){return {id:'p'+rid(16),customer:'',address:'',number:'',date:today(),updated:Date.now(),showCompare:true,showDetail:true,options:[newOption('Option A')]};}
 function curOpt(){return project.options[activeOpt];}
 let cfg = load(K_CFG,{url:SUPABASE_URL,key:SUPABASE_KEY});
@@ -1463,7 +1479,7 @@ async function saveProfile(){
 function saveEstimator(){ lput(K_EST,{name:val('qEstName'),phone:val('qEstPhone')}); }
 function fillEstimator(){ const e=load(K_EST,{name:'',phone:''})||{name:'',phone:''}; setv('qEstName',e.name||''); setv('qEstPhone',e.phone||''); }
 function estimator(){ return load(K_EST,{name:'',phone:''})||{name:'',phone:''}; }
-function readDisc(){ const o=curOpt(); o.discType=val('discType'); o.discVal=parseFloat(val('discVal'))||0; }
+function readDisc(){ const o=curOpt(); o.saveOverride=parseFloat(val('saveOverride'))||0; }
 function saveProject(){ readProjectMeta(); project.updated=Date.now(); lput(K_QUOTE,project); scheduleCloudSave(); }
 
 /* ---- Autosave to shared cloud (debounced) ---- */
@@ -1867,7 +1883,7 @@ function renderSavedList(){
     const opts=(d.options||[]).length;
     const when=r.updated?new Date(r.updated).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
     let total=0;
-    (d.options||[]).forEach(o=>{ const s=(o.lines||[]).reduce((x,l)=>x+l.price*l.qty,0); let ds=o.discType==='pct'?s*((o.discVal||0)/100):(o.discVal||0); total=Math.max(total,s-Math.min(ds,s)); });
+    (d.options||[]).forEach(o=>{ try{ total=Math.max(total, optTotals(o).total); }catch(e){ total=Math.max(total,(o.lines||[]).reduce((x,l)=>x+l.price*l.qty,0)); } });
     const ap=d.approval&&d.approval.approved;
     const dc=d.decline&&d.decline.declined&&!ap;
     const badge=ap?`<span style="display:inline-block;background:#eaf3ea;color:#2e7d32;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:8px">&#10003; APPROVED</span>`
@@ -1957,10 +1973,49 @@ async function deleteProposal(pid){
   savedCache=savedCache.filter(x=>x.id!==pid);
   renderSavedList(); toast('Proposal deleted');
 }
+function migrateDiscounts(o){
+  if(Array.isArray(o.discounts)) return o.discounts;
+  const arr=[];
+  if(o.discLabel!==undefined || o.discVal!==undefined) arr.push({label:o.discLabel||'Cash & check discount',type:o.discType||'pct',val:parseFloat(o.discVal)||0});
+  if(o.disc2Val) arr.push({label:o.disc2Label||'Additional discount',type:o.disc2Type||'flat',val:parseFloat(o.disc2Val)||0});
+  if(!arr.length) arr.push({label:'Cash & check discount',type:'pct',val:0});
+  o.discounts=arr;
+  return arr;
+}
+function addDiscount(){ const o=curOpt(); migrateDiscounts(o); o.discounts.push({label:'Additional discount',type:'flat',val:0}); saveProject(); renderDiscRows(); renderQuote(); }
+function removeDiscount(i){ const o=curOpt(); migrateDiscounts(o); o.discounts.splice(i,1); if(!o.discounts.length) o.discounts.push({label:'Discount',type:'pct',val:0}); saveProject(); renderDiscRows(); renderQuote(); }
+function renderDiscRows(){
+  const o=curOpt(); const ds=migrateDiscounts(o);
+  const wrap=document.getElementById('discRows'); if(!wrap) return;
+  wrap.innerHTML=ds.map((d,i)=>`
+    <div class="trow disc">
+      <input class="lbl lbl-edit" value="${(d.label||'').replace(/"/g,'&quot;')}" oninput="setDisc(${i},'label',this.value)" placeholder="Discount name">
+      <span class="disc-input">
+        <select onchange="setDisc(${i},'type',this.value)">
+          <option value="pct"${d.type==='pct'?' selected':''}>%</option>
+          <option value="flat"${d.type==='flat'?' selected':''}>$</option>
+        </select>
+        <input type="number" min="0" step="0.01" value="${d.val||0}" oninput="setDisc(${i},'val',this.value)">
+        <span class="val discAmtCell" data-i="${i}" style="width:70px;text-align:right">&ndash;$0.00</span>
+        <button class="disc-x" title="Remove" onclick="removeDiscount(${i})">&times;</button>
+      </span>
+    </div>`).join('');
+}
+function setDisc(i,key,v){ const o=curOpt(); const ds=migrateDiscounts(o); if(!ds[i])return; ds[i][key]= key==='val'?(parseFloat(v)||0):v; saveProject(); renderQuote(); }
 function optTotals(o){
   const sub=o.lines.reduce((s,l)=>s+l.price*l.qty,0);
-  let disc=o.discType==='pct'?sub*((o.discVal||0)/100):(o.discVal||0); disc=Math.min(disc,sub);
-  return {sub,disc,total:sub-disc};
+  const ds=migrateDiscounts(o);
+  let bal=sub; const applied=[];
+  ds.forEach(d=>{
+    let amt=d.type==='pct'?bal*((parseFloat(d.val)||0)/100):(parseFloat(d.val)||0);
+    amt=Math.max(0,Math.min(amt,bal)); bal-=amt;
+    applied.push({label:d.label,amt});
+  });
+  const total=bal;
+  // Savings: manual override (a direct dollar amount) wins; else auto = subtotal - total.
+  const manual=Math.max(0, parseFloat(o.saveOverride)||0);
+  const savings = manual>0 ? manual : (sub>total ? sub-total : 0);
+  return {sub,discounts:applied,total,savings};
 }
 function renderQuote(){
   readProjectMeta(); readDisc();
@@ -1991,17 +2046,26 @@ function renderQuote(){
   }
   const t=optTotals(o);
   document.getElementById('subtotal').textContent=money(t.sub);
-  document.getElementById('discAmt').innerHTML='&ndash;'+money(t.disc);
+  document.querySelectorAll('.discAmtCell').forEach(el=>{ const i=+el.dataset.i; const a=(t.discounts[i]||{}).amt||0; el.innerHTML='&ndash;'+money(a); });
   document.getElementById('grandTotal').textContent=money(t.total);
   const mb=document.getElementById('mbTotal'); if(mb) mb.textContent=money(t.total);
+  const sp=document.getElementById('savePreview');
+  if(sp){
+    const kw=(function(){for(const l of (o.lines||[])){const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw/i); if(m) return m[1]+'KW';} return null;})();
+    if(t.savings>0){
+      const rounded=money(Math.round(t.savings/100)*100);
+      sp.innerHTML='On the proposal this will read:<br><b>&ldquo;You\u2019re saving nearly '+rounded+' off the standard price on the '+(kw||'this')+' system.&rdquo;</b>';
+      sp.classList.add('on');
+    } else { sp.classList.remove('on'); sp.innerHTML=''; }
+  }
   saveProject();
 }
 async function clearOption(){
   if(!await appConfirm('Clear this option?','Remove all lines from <b>'+esc(curOpt().name||'this option')+'</b>? Other options and your catalog stay intact.','Clear lines',true))return;
-  const o=curOpt(); o.lines=[]; o.discVal=0; saveProject(); fillDisc(); renderQuote(); toast('Option cleared');
+  const o=curOpt(); o.lines=[]; saveProject(); fillDisc(); renderQuote(); toast('Option cleared');
 }
 function toggleProj(key,on){ project[key]=on; saveProject(); }
-function fillDisc(){ const o=curOpt(); setv('discType',o.discType||'pct'); setv('discVal',o.discVal||0); }
+function fillDisc(){ const o=curOpt(); setv('saveOverride',o.saveOverride||0); renderDiscRows(); }
 function fillProjectMeta(){
   const cc=document.getElementById('optCompare'); if(cc) cc.checked = project.showCompare!==false;
   const cd=document.getElementById('optDetail'); if(cd) cd.checked = project.showDetail!==false;
@@ -2117,6 +2181,7 @@ function fullDocHtml(project, o2){
   const opts=project.options;
   const isGen=l=>/(\d+(?:\.\d+)?)\s*kw/i.test(l.name||'');
   const genLine=o=>(o.lines||[]).find(isGen);
+  const kwOf=o=>{ for(const l of (o.lines||[])){ const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw/i); if(m) return m[1]+'KW'; } return null; };
   const modelOf=l=>{ if(!l) return '';
     // 1) explicit Model field wins
     if((l.model||'').trim()) return l.model.trim();
@@ -2166,7 +2231,6 @@ function fullDocHtml(project, o2){
       const t=optTotals(o); const rec=o.recommended?' reccol':'';
       return `<td class="${rec.trim()}">${money(t.total)}</td>`;
     }).join('');
-    const kwOf=o=>{ for(const l of (o.lines||[])){ const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw/i); if(m) return m[1]+'KW'; } return null; };
     const headCells=opts.map(o=>{ const kw=kwOf(o); const lbl=kw||esc(o.name||'Option'); return `<th class="${o.recommended?'rec':''}">${o.recommended?'\u2605 ':''}${lbl}${o.recommended?' RECOMMENDED':''}</th>`; }).join('');
     // Generator model row (only if any option has a generator line with a model set)
     const anyGen=opts.some(o=>genLine(o));
@@ -2212,7 +2276,10 @@ function fullDocHtml(project, o2){
         <tr><td class="qty">${l.qty}</td>
         <td><div class="nm">${esc(l.name)}</div>${l.desc?`<div class="ds">${esc(l.desc)}</div>`:''}</td>
         <td class="pr">${money(l.price*l.qty)}</td></tr>`).join('');
-      const discRow = t.disc>0 ? `<div class="r d"><span>Discount${o.discType==='pct'?' ('+o.discVal+'%)':''}</span><span>&ndash;${money(t.disc)}</span></div>` : '';
+      const kw=kwOf(o);
+      const totalLabel = kw?('YOUR TOTAL ('+kw+')'):'YOUR TOTAL';
+      const savingsLine = t.savings>0 ? `<div class="pi-save">You&rsquo;re saving nearly ${money(Math.round(t.savings/100)*100)} off the standard price on the ${kw||esc(o.name||'this')} system.</div>` : '';
+      const discRowsHtml = (t.discounts||[]).filter(d=>d.amt>0).map(d=>`<div class="pi-row disc"><span>${esc(d.label||'Discount')}</span><span>&ndash; ${money(d.amt)}</span></div>`).join('');
       return `
       <div class="p-optblock">
         <h3>${esc(o.name||'Option')}${o.recommended?'<span class="rec-badge">\u2605 RECOMMENDED</span>':''}</h3>
@@ -2221,10 +2288,12 @@ function fullDocHtml(project, o2){
           <thead><tr><th class="qty">QTY</th><th>Item &amp; description</th><th style="text-align:right">Amount</th></tr></thead>
           <tbody>${rows||'<tr><td colspan="3" style="padding:14px;color:#888">No items in this option.</td></tr>'}</tbody>
         </table>
-        <div class="p-tot">
-          <div class="r"><span>Subtotal</span><span>${money(t.sub)}</span></div>
-          ${discRow}
-          <div class="grand"><span>${esc(o.name||'Option')} total</span><span>${money(t.total)}</span></div>
+        <div class="p-invest">
+          <div class="pi-title">Your Investment</div>
+          ${savingsLine}
+          <div class="pi-row"><span>Services subtotal</span><span>${money(t.sub)}</span></div>
+          ${discRowsHtml}
+          <div class="pi-total"><span>${totalLabel}</span><span>${money(t.total)}</span></div>
         </div>
       </div>`;
     }).join('');
