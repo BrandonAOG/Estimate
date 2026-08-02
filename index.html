@@ -2414,12 +2414,21 @@ function fullDocHtml(project, o2){
       };
       const recDays=runtimeDays(recOpt);
       const otherBest=others.length?Math.max(...others.map(o=>runtimeDays(o)??-1)):-1;
-      let why='you get meaningful extra capacity you\u2019ll appreciate every outage.';
-      if(recDays!==null && otherBest>0 && recDays>otherBest){
-        why='you get roughly <b>'+recDays+' days</b> of backup at half load vs about '+otherBest+' \u2014 real staying power for a longer outage.*';
-      } else if(recDays!==null && otherBest<=0){
-        why='you get roughly <b>'+recDays+' days</b> of backup at half load.*';
+      // Advantages of the recommended option: bigger generator? longer runtime? Say all that apply.
+      const recKw=kwNumA(recOpt);
+      const otherKwBest=others.length?Math.max(...others.map(o=>kwNumA(o)||0)):0;
+      const perks=[];
+      if(recKw!==null && otherKwBest>0 && recKw>otherKwBest){
+        perks.push('a bigger <b>'+recKw+'KW</b> generator (vs '+otherKwBest+'KW)');
       }
+      if(recDays!==null && otherBest>0 && recDays>otherBest){
+        perks.push('roughly <b>'+recDays+' days</b> of backup at half load vs about '+otherBest+'*');
+      } else if(recDays!==null && otherBest<=0){
+        perks.push('roughly <b>'+recDays+' days</b> of backup at half load*');
+      }
+      let why='you get meaningful extra capacity you\u2019ll appreciate every outage.';
+      if(perks.length===1) why='you get '+perks[0]+' \u2014 real staying power for a longer outage.';
+      if(perks.length>=2)  why='you get '+perks[0]+' and '+perks[1]+' \u2014 more power and more staying power for a longer outage.';
       const foot=(why.includes('*'))?'<div style="font-size:8pt;color:#999;margin-top:2px">*Approximate; assumes ~50% load and 80% usable tank fill. Actual runtime varies with load and conditions.</div>':'';
       recCaption=`<div class="p-reccap">\u2605 Our recommendation: <b>${esc(recOpt.name||'')}</b>${diff>0?' \u2014 for only '+money(diff)+' more, '+why:'.'}${foot}</div>`;
     }
