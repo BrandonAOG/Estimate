@@ -1673,7 +1673,10 @@ function avDocHtml(p, idx){
     <div class="grand"><span>Your Total</span><span>${money(t.total)}</span></div></div>`;
 }
 function renderAvDoc(){
-  document.getElementById('avDoc').innerHTML=avDocHtml(AV.proposal, AV.selected);
+  // Customers reviewing the live link see the SAME full proposal as the print/template
+  const p=AV.proposal;
+  document.getElementById('avDoc').innerHTML=fullDocHtml(p,{online:false, showApprove:false,
+    estName:(p.estimator&&p.estimator.name)||'', estPhone:(p.estimator&&p.estimator.phone)||''});
 }
 let sigCtx=null, sigCanvas=null;
 function setupSigpad(){
