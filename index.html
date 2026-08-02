@@ -1206,7 +1206,7 @@ async function startBuilder(){
       if(!sb) sb = window.supabase.createClient(cfg.url,cfg.key);
       const {data,error}=await sb.from('catalog').select('*').order('sort',{ascending:true});
       if(error) throw error;
-      catalog=(data||[]).map(r=>({id:r.id,name:r.name,desc:r.desc,price:Number(r.price)||0,cat:r.cat}));
+      catalog=(data||[]).map(r=>({id:r.id,name:r.name,desc:r.desc,model:r.model||'',price:Number(r.price)||0,cat:r.cat}));
       if(catalog.length===0){
         catalog=seedCatalog();
         await sb.from('catalog').insert(catalog.map((c,i)=>({id:c.id,name:c.name,desc:c.desc,model:c.model||'',price:c.price,cat:c.cat,sort:i})));
@@ -1223,7 +1223,7 @@ async function startBuilder(){
 async function reloadCatalog(){
   if(!online)return;
   const {data}=await sb.from('catalog').select('*').order('sort',{ascending:true});
-  catalog=(data||[]).map(r=>({id:r.id,name:r.name,desc:r.desc,price:Number(r.price)||0,cat:r.cat}));
+  catalog=(data||[]).map(r=>({id:r.id,name:r.name,desc:r.desc,model:r.model||'',price:Number(r.price)||0,cat:r.cat}));
   renderTabs(); renderCatalog();
 }
 function paintStatus(){
@@ -2142,8 +2142,12 @@ function openItemModal(editId){
 function closeItemModal(){document.getElementById('itemModal').classList.remove('on');}
 async function saveItem(){
   const name=val('fName').trim();if(!name){toast('Give the item a name');return;}
-  const data={name,desc:val('fDesc').trim(),model:val('fModel').trim(),price:parseFloat(val('fPrice'))||0,cat:val('fCat').trim()||'Uncategorized'};
   const eid=val('editId');
+  // Category: prefer the field; if focus-clear left it blank, use the remembered prev, then existing item cat
+  const fCatEl=document.getElementById('fCat');
+  let catVal=(val('fCat').trim()) || (fCatEl&&fCatEl.dataset.prev||'').trim();
+  if(!catVal && eid){ const ex=catalog.find(c=>c.id===eid); if(ex) catVal=ex.cat||''; }
+  const data={name,desc:val('fDesc').trim(),model:val('fModel').trim(),price:parseFloat(val('fPrice'))||0,cat:catVal||'Uncategorized'};
   if(eid){
     Object.assign(catalog.find(c=>c.id===eid),data);
     if(online){ await sb.from('catalog').update(data).eq('id',eid); toast('Catalog price updated'); }
