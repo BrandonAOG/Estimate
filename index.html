@@ -2426,7 +2426,9 @@ function fullDocHtml(project, o2){
       let sysDesc='';
       if(genL){
         const qty=(genL.qty||1)>1 ? (genL.qty+'\u00d7 ') : '';
-        const brand=(genL.name||'').trim().split(/\s+/)[0]||'';
+        // Brand = first real WORD in the name (skips numbering like "1 - " and the word "generator")
+        const words=((genL.name||'').match(/[A-Za-z][A-Za-z&-]*/g)||[]);
+        let brand=words.find(wd=>!/^(generator|gen|standby|new|kw|w)$/i.test(wd))||'';
         const brandNice=brand? brand.charAt(0).toUpperCase()+brand.slice(1).toLowerCase() : '';
         sysDesc=qty+(brandNice?brandNice+' ':'')+(kw||'');
       } else if(kw){ sysDesc=kw; }
