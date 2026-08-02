@@ -2397,7 +2397,27 @@ function fullDocHtml(project, o2){
       const recTot=optTotals(recOpt).total;
       const cheapest=others.length?Math.min(...others.map(o=>optTotals(o).total)):recTot;
       const diff=recTot-cheapest;
-      recCaption=`<div class="p-reccap">\u2605 Our recommendation: <b>${esc(recOpt.name||'')}</b>${diff>0?' \u2014 for only '+money(diff)+' more, you get meaningful extra capacity you\u2019ll appreciate every outage.':'.'}</div>`;
+      // Smart runtime estimate: kW -> approx LP burn at half load (~0.095 gal/hr per kW),
+      // tank gallons -> ~80% usable fill. days = usable / (burn * 24).
+      const runtimeDays=o=>{
+        const k=kwNumA?kwNumA(o):null;
+        const tl=(o.lines||[]).find(l=>/(\d+)\s*gal/i.test(l.name||'')&&/tank/i.test(l.name||''));
+        if(k===null||!tl) return null;
+        const gm=(tl.name||'').match(/(\d+)\s*gal/i); if(!gm) return null;
+        const gal=parseInt(gm[1])*(tl.qty||1);
+        const days=(gal*0.8)/((k*0.095)*24);
+        return Math.round(days*10)/10;
+      };
+      const recDays=runtimeDays(recOpt);
+      const otherBest=others.length?Math.max(...others.map(o=>runtimeDays(o)??-1)):-1;
+      let why='you get meaningful extra capacity you\u2019ll appreciate every outage.';
+      if(recDays!==null && otherBest>0 && recDays>otherBest){
+        why='you get roughly <b>'+recDays+' days</b> of backup at half load vs about '+otherBest+' \u2014 real staying power for a longer outage.*';
+      } else if(recDays!==null && otherBest<=0){
+        why='you get roughly <b>'+recDays+' days</b> of backup at half load.*';
+      }
+      const foot=(why.includes('*'))?'<div style="font-size:8pt;color:#999;margin-top:2px">*Approximate; assumes ~50% load and 80% usable tank fill. Actual runtime varies with load and conditions.</div>':'';
+      recCaption=`<div class="p-reccap">\u2605 Our recommendation: <b>${esc(recOpt.name||'')}</b>${diff>0?' \u2014 for only '+money(diff)+' more, '+why:'.'}${foot}</div>`;
     }
 
     cmpHtml=`
