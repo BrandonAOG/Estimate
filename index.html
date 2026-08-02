@@ -284,6 +284,9 @@
   .ub-install{background:var(--amber);border:1px solid var(--amber);border-radius:9px;padding:9px 14px;font-weight:800;font-size:13px;color:var(--ink)}
   .app-footer{text-align:center;font-size:11px;color:#a9a49c;padding:26px 12px 18px}
   body.approve-mode .app-footer{display:none}
+  .p-cmp td.reccol{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .p-cmp thead th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .p-included{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @media print{.app-footer{display:none!important}}
   /* --- Mobile sticky action bar --- */
   #mobileBar{display:none}
@@ -307,7 +310,8 @@
     @page{size:letter;margin:0.6in 0.65in}
     body{background:#fff}
   }
-  #printDoc{color:#1a1a1a;font-family:'Calibri','Segoe UI',Helvetica,Arial,sans-serif;font-size:11pt}
+  #printDoc, .av-doc{color:#1a1a1a;font-family:'Calibri','Segoe UI',Helvetica,Arial,sans-serif;font-size:11pt}
+  .av-fulldoc .p-why{break-before:auto!important;page-break-before:auto!important;margin-top:18px;padding-top:0}
   .p-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #ddd;padding-bottom:12px;margin-bottom:16px}
   .p-logo{font-weight:800;font-size:20pt;letter-spacing:-.5px;line-height:1.05}
   .p-logo.sub{font-size:16pt;letter-spacing:0;color:#1a1a1a;font-weight:700;line-height:1.1;margin-top:2px}
@@ -317,13 +321,18 @@
   .p-meta{text-align:right;font-size:9pt;color:#555}
   .p-meta .big{font-size:13pt;font-weight:800;color:#1a1a1a}
   .p-meta .cust{font-size:11pt;font-weight:700;color:#1a1a1a;margin-top:6px}
-  .p-hero{font-size:24pt;font-weight:800;margin:14px 0 6px}
+  .p-hero{font-size:24pt;font-weight:800;margin:14px 0 6px;background:#f4b400;color:#1a1a1a;padding:10px 16px;border-radius:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .p-lede{color:#555;font-size:11pt;margin-bottom:16px}
   .p-banner{background:#f4b400;color:#1a1a1a;font-weight:700;font-size:12pt;padding:9px 14px;border-radius:2px;margin:14px 0}
   .p-incl{border:1px solid #cfe0cf;border-left:5px solid #2e7d32;background:#f7faf7;border-radius:6px;padding:14px 16px;margin:14px 0}
   .p-incl h4{margin:0 0 8px;font-size:12pt}
   .p-incl div{font-size:9.5pt;margin:4px 0;padding-left:20px;position:relative;color:#333}
   .p-incl div:before{content:"\2713";color:#2e7d32;font-weight:700;position:absolute;left:0}
+  .p-included{border:1px solid #cfe3c0;background:#f6faf2;border-radius:8px;padding:14px 18px;margin:16px 0 4px}
+  .p-included h3{font-size:12pt;margin:0 0 8px;color:#1a1a1a}
+  .p-included div{font-size:10pt;color:#333;margin:5px 0;padding-left:20px;position:relative;line-height:1.4}
+  .p-included div:before{content:"\2713";color:#2e7d32;font-weight:700;position:absolute;left:0}
+  .p-reccap{font-style:italic;color:#555;font-size:9.5pt;margin:8px 0 4px}
   .p-choose{font-size:15pt;font-weight:800;margin:20px 0 4px}
   .p-choose-sub{color:#555;font-size:10pt;margin-bottom:10px}
   .p-cmp{width:100%;border-collapse:collapse;margin:6px 0 8px;table-layout:fixed}
@@ -334,8 +343,8 @@
   .p-cmp tbody td:first-child{font-weight:600;color:#333;text-align:left}
   .p-cmp tbody td{text-align:center;color:#333}
   .p-cmp tbody tr:nth-child(even) td{background:#faf9f7}
-  .p-cmp td.reccol{background:#fff8e1}
-  .p-cmp tbody tr:nth-child(even) td.reccol{background:#fdf1c9}
+  .p-cmp td.reccol,.p-cmp tbody tr:nth-child(even) td.reccol{background:#fff5d6 !important}
+  .p-cmp thead th.rec{background:#f4b400 !important;color:#1a1a1a !important}
   .p-cmp .priceRow td{font-weight:800;font-size:9.5pt;border-top:2px solid #1a1a1a}
   .p-cmp .yes{color:#2e7d32;font-weight:700}
   .p-cmp .no{color:#bbb}
@@ -539,7 +548,8 @@
     <div class="modal-body">
       <input type="hidden" id="editId">
       <div class="field"><label>Item name</label><input id="fName" placeholder="e.g. Generac 26KW generator"></div>
-      <div class="field"><label>Short description (optional)</label><textarea id="fDesc" placeholder="Model, specs, warranty&hellip;"></textarea></div>
+      <div class="field"><label>Short description (optional)</label><textarea id="fDesc" placeholder="Specs, warranty&hellip;"></textarea></div>
+      <div class="field"><label>Model # (optional &mdash; shows on the comparison table)</label><input id="fModel" placeholder="e.g. NEXT-GEN 7327"></div>
       <div class="row2">
         <div class="field"><label>Your price ($)</label><input id="fPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
         <div class="field"><label>Category</label><input id="fCat" list="catList" placeholder="Generators, Gas Services&hellip;"><datalist id="catList"></datalist></div>
@@ -1169,7 +1179,7 @@ async function startBuilder(){
       catalog=(data||[]).map(r=>({id:r.id,name:r.name,desc:r.desc,price:Number(r.price)||0,cat:r.cat}));
       if(catalog.length===0){
         catalog=seedCatalog();
-        await sb.from('catalog').insert(catalog.map((c,i)=>({id:c.id,name:c.name,desc:c.desc,price:c.price,cat:c.cat,sort:i})));
+        await sb.from('catalog').insert(catalog.map((c,i)=>({id:c.id,name:c.name,desc:c.desc,model:c.model||'',price:c.price,cat:c.cat,sort:i})));
       }
       online=true;
       sb.channel('catalog-live').on('postgres_changes',{event:'*',schema:'public',table:'catalog'},reloadCatalog).subscribe();
@@ -1304,7 +1314,7 @@ function addLine(itemId){
   const it=catalog.find(c=>c.id===itemId);if(!it)return;
   const o=curOpt();
   const ex=o.lines.find(l=>l.itemId===itemId);
-  if(ex)ex.qty++;else o.lines.push({itemId,name:it.name,desc:it.desc,price:it.price,qty:1});
+  if(ex)ex.qty++;else o.lines.push({itemId,name:it.name,desc:it.desc,model:it.model||'',price:it.price,qty:1});
   saveProject();renderQuote();toast(it.name+' \u2192 '+(o.name||'option'));
 }
 function setQty(i,v){curOpt().lines[i].qty=Math.max(1,parseInt(v)||1);saveProject();renderQuote();}
@@ -1606,9 +1616,11 @@ function selectAvOpt(i){
 }
 function avEstimateBlock(p, idx){
   if(!p.options||!p.options.length) return '';
+  const full=fullDocHtml(p,{online:false, showApprove:false,
+    estName:(p.estimator&&p.estimator.name)||'', estPhone:(p.estimator&&p.estimator.phone)||''});
   return `<details class="av-estimate">
-    <summary>View your estimate</summary>
-    <div class="av-est-inner"><div class="av-doc">${avDocHtml(p, idx||0)}</div></div>
+    <summary>View your full proposal</summary>
+    <div class="av-est-inner"><div class="av-doc av-fulldoc">${full}</div></div>
   </details>`;
 }
 function avDocHtml(p, idx){
@@ -2003,14 +2015,14 @@ function openItemModal(editId){
   setv('editId',editId||'');
   document.getElementById('modalTitle').textContent=editId?'Edit catalog item':'Add catalog item';
   const it=editId?catalog.find(c=>c.id===editId):{name:'',desc:'',price:'',cat:(activeCat!=='All'?activeCat:'')};
-  setv('fName',it.name);setv('fDesc',it.desc||'');setv('fPrice',it.price===0?'':it.price);setv('fCat',it.cat||'');
+  setv('fName',it.name);setv('fDesc',it.desc||'');setv('fModel',it.model||'');setv('fPrice',it.price===0?'':it.price);setv('fCat',it.cat||'');
   document.getElementById('itemModal').classList.add('on');
   setTimeout(()=>document.getElementById('fName').focus(),50);
 }
 function closeItemModal(){document.getElementById('itemModal').classList.remove('on');}
 async function saveItem(){
   const name=val('fName').trim();if(!name){toast('Give the item a name');return;}
-  const data={name,desc:val('fDesc').trim(),price:parseFloat(val('fPrice'))||0,cat:val('fCat').trim()||'Uncategorized'};
+  const data={name,desc:val('fDesc').trim(),model:val('fModel').trim(),price:parseFloat(val('fPrice'))||0,cat:val('fCat').trim()||'Uncategorized'};
   const eid=val('editId');
   if(eid){
     Object.assign(catalog.find(c=>c.id===eid),data);
@@ -2093,42 +2105,103 @@ function importData(e){
 /* ================= PRINT ================= */
 function buildPrintDoc(){
   readProjectMeta(); readDisc();
+  const est=estimator();
+  document.getElementById('printDoc').innerHTML=fullDocHtml(project,{
+    online: online,
+    showApprove: online && !((project.approval&&project.approval.approved)||(project.decline&&project.decline.declined)),
+    estName:(est.name||'').trim(), estPhone:(est.phone||'').trim()
+  });
+}
+function fullDocHtml(project, o2){
+  o2=o2||{};
   const opts=project.options;
-  // build comparison table: rows = union of all item names across options, checkbox = whether in that option
+  const isGen=l=>/(\d+(?:\.\d+)?)\s*kw/i.test(l.name||'');
+  const genLine=o=>(o.lines||[]).find(isGen);
+  const modelOf=l=>{ if(!l) return '';
+    // 1) explicit Model field wins
+    if((l.model||'').trim()) return l.model.trim();
+    // 2) "MODEL# XXXX" found in the description (or name)
+    const hay=(l.desc||'')+' '+(l.name||'');
+    const mm=hay.match(/model\s*#?\s*[:\-]?\s*([A-Za-z0-9\-]+)/i);
+    if(mm&&mm[1]) return mm[1].trim();
+    // 3) fallback: text after the kW in the name
+    const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw\s*(.*)$/i); return m&&m[2]?m[2].trim():''; };
+  // "What's included in your price" — from the recommended option (or the only option)
+  const recIdx = Math.max(0, opts.findIndex(o=>o.recommended));
+  const recOpt = opts[recIdx] || opts[0];
+  let includedHtml='';
+  if(recOpt && (recOpt.lines||[]).length){
+    const items=recOpt.lines.map(l=>{
+      const nm=esc(l.name||'');
+      const ds=(l.desc||'').trim();
+      const short = ds && ds.length<=70 ? ' &mdash; '+esc(ds) : '';
+      const q = l.qty>1 ? ' ('+l.qty+')' : '';
+      return `<div>${nm}${q}${short}</div>`;
+    }).join('');
+    includedHtml=`
+      <div class="p-included">
+        <h3>What's included in your price</h3>
+        ${items}
+      </div>`;
+  }
+
+  // "Choose your system" comparison table — one row per distinct item, quantities where they differ
   let cmpHtml='';
-  if(project.showCompare!==false && opts.length){
-    // ordered union of item names (first appearance order)
-    const seen=[]; const order=[];
-    opts.forEach(o=>o.lines.forEach(l=>{ if(!seen.includes(l.name)){seen.push(l.name);order.push(l.name);} }));
+  if(project.showCompare!==false && opts.length>1){
+    const seen=[], order=[];
+    opts.forEach(o=>(o.lines||[]).forEach(l=>{ if(isGen(l))return; if(!seen.includes(l.name)){seen.push(l.name);order.push(l.name);} }));
     const bodyRows=order.map(name=>{
-      const cells=opts.map((o,ci)=>{
-        const li=o.lines.find(l=>l.name===name);
-        const rec = o.recommended?' reccol':'';
+      const cells=opts.map(o=>{
+        const li=(o.lines||[]).find(l=>l.name===name);
+        const rec=o.recommended?' reccol':'';
         if(li){
-          const q=li.qty>1?' \u00d7'+li.qty:'';
-          return `<td class="${rec.trim()}"><span class="yes">\u2713${q}</span></td>`;
+          const q=li.qty>1?li.qty+' included':'Included';
+          return `<td class="${rec.trim()}">${q}</td>`;
         }
-        return `<td class="${rec.trim()}"><span class="no">\u2014</span></td>`;
+        return `<td class="${rec.trim()}"><span class="no">&mdash;</span></td>`;
       }).join('');
-      return `<tr><td>${esc(name)}</td>${cells}</tr>`;
+      return `<tr><td class="rowlbl">${esc(name)}</td>${cells}</tr>`;
     }).join('');
     const priceCells=opts.map(o=>{
       const t=optTotals(o); const rec=o.recommended?' reccol':'';
       return `<td class="${rec.trim()}">${money(t.total)}</td>`;
     }).join('');
-    const headCells=opts.map(o=>`<th class="${o.recommended?'rec':''}">${o.recommended?'\u2605 ':''}${esc(o.name||'Option')}</th>`).join('');
-    // column width
+    const kwOf=o=>{ for(const l of (o.lines||[])){ const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw/i); if(m) return m[1]+'KW'; } return null; };
+    const headCells=opts.map(o=>{ const kw=kwOf(o); const lbl=kw||esc(o.name||'Option'); return `<th class="${o.recommended?'rec':''}">${o.recommended?'\u2605 ':''}${lbl}${o.recommended?' RECOMMENDED':''}</th>`; }).join('');
+    // Generator model row (only if any option has a generator line with a model set)
+    const anyGen=opts.some(o=>genLine(o));
+    let modelRow='';
+    if(anyGen){
+      const cells=opts.map(o=>{
+        const g=genLine(o); const rec=o.recommended?' reccol':''; const md=modelOf(g);
+        const val=md?esc(md):'<span class="no">&mdash;</span>';
+        return `<td class="${rec.trim()}">${val}</td>`;
+      }).join('');
+      modelRow=`<tr><td class="rowlbl">Generator Model</td>${cells}</tr>`;
+    }
     const colw=Math.floor(62/opts.length);
     const colgroup=`<col style="width:38%">`+opts.map(()=>`<col style="width:${colw}%">`).join('');
+
+    // recommendation caption with auto price delta
+    let recCaption='';
+    if(recOpt){
+      const others=opts.filter(o=>o!==recOpt);
+      const recTot=optTotals(recOpt).total;
+      const cheapest=others.length?Math.min(...others.map(o=>optTotals(o).total)):recTot;
+      const diff=recTot-cheapest;
+      recCaption=`<div class="p-reccap">\u2605 Our recommendation: <b>${esc(recOpt.name||'')}</b>${diff>0?' \u2014 for only '+money(diff)+' more, you get meaningful extra capacity you\u2019ll appreciate every outage.':'.'}</div>`;
+    }
+
     cmpHtml=`
-      <div class="p-choose">Compare your options</div>
+      <div class="p-choose">Choose your system</div>
       <div class="p-choose-sub">Every option below is a complete, permitted, professionally installed system. Compare what's included, then choose the one that fits you best.</div>
       <table class="p-cmp"><colgroup>${colgroup}</colgroup>
-        <thead><tr><th class="lbl"></th>${headCells}</tr></thead>
-        <tbody>${bodyRows||'<tr><td colspan="'+(opts.length+1)+'" style="padding:14px;color:#888">Add items to your options to compare.</td></tr>'}
-          <tr class="priceRow"><td>Your price (cash/check)</td>${priceCells}</tr>
+        <thead><tr><th class="lbl">Generator Size</th>${headCells}</tr></thead>
+        <tbody>${modelRow}${bodyRows}
+          <tr class="priceRow"><td class="rowlbl">Your price (cash/check)</td>${priceCells}</tr>
         </tbody>
-      </table>`;
+      </table>
+      ${recCaption}`;
   }
   // per-option detailed blocks
   let detailHtml='';
@@ -2156,9 +2229,8 @@ function buildPrintDoc(){
       </div>`;
     }).join('');
   }
-  const est=estimator();
-  const estName=(est.name||'').trim();
-  const estPhone=(est.phone||'').trim();
+  const estName=o2.estName||'';
+  const estPhone=o2.estPhone||'';
   // Detect extended warranty line items and read the YEAR COUNT off them
   const extYears = o => {
     let yrs=0;
@@ -2183,9 +2255,7 @@ function buildPrintDoc(){
     : 'Genuine Generac equipment with factory-backed warranty \u2014 extended coverage available';
   // Printed approval link + QR (only when saved to the team cloud and not yet decided)
   let approveBlock='';
-  const decided = (project.approval&&project.approval.approved)||(project.decline&&project.decline.declined);
-  if(online && !decided){
-    try{ cloudSaveNow(); }catch(e){}
+  if(o2.showApprove){
     const plink = location.origin+location.pathname+'?approve='+encodeURIComponent(project.id);
     let qrSvg='';
     try{ const q=qrcode(0,'M'); q.addData(plink); q.make(); qrSvg=q.createSvgTag({cellSize:3,margin:0,scalable:true}).replace('<svg ','<svg style="width:88px;height:88px;display:block" '); }catch(e){}
@@ -2202,7 +2272,7 @@ function buildPrintDoc(){
   const callLine = (estName||estPhone)
     ? `Call ${estName?esc(estName):'us'}${estPhone?' at '+esc(estPhone):''} or reply to this proposal and we'll get you on the schedule.`
     : `Call us at (239) 839-3553 or reply to this proposal and we'll get you on the schedule.`;
-  document.getElementById('printDoc').innerHTML=`
+  return `
     <div class="p-head">
       <div>
         <div style="display:flex;align-items:center;gap:12px"><img src="${LOGO}" alt="" style="width:52px;height:auto"><div>
@@ -2221,6 +2291,7 @@ function buildPrintDoc(){
     <div class="p-hero">Never Lose Power Again.</div>
     <div class="p-lede">A fully automatic, whole-home Generac standby system &mdash; professionally installed, permitted, and ${ledeWarranty}. When the grid goes down, your home stays on.</div>
     <div class="p-banner">Everything is handled for you &mdash; start to finish</div>
+    ${includedHtml}
     ${cmpHtml}
     ${detailHtml}
     <div class="p-banner" style="margin-top:18px">This pricing is valid for 30 days</div>
