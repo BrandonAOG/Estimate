@@ -2446,10 +2446,11 @@ function fullDocHtml(project, o2){
   }
   // per-option detailed blocks
   let detailHtml='';
-  if(project.showDetail!==false){
+  {
+    const showScope = project.showDetail!==false;
     detailHtml=opts.map(o=>{
       const t=optTotals(o);
-      const rows=o.lines.map(l=>`
+      const rows=!showScope?'':o.lines.map(l=>`
         <tr><td class="qty">${l.qty}</td>
         <td><div class="nm">${esc(l.name)}</div>${l.desc?`<div class="ds">${esc(l.desc)}</div>`:''}</td>
         <td class="pr">${money(l.price*l.qty)}</td></tr>`).join('');
@@ -2477,11 +2478,11 @@ function fullDocHtml(project, o2){
       return `
       <div class="p-optblock">
         <h3>${esc(o.name||'Option')}${o.recommended?'<span class="rec-badge">\u2605 RECOMMENDED</span>':''}</h3>
-        <div class="sub">What's included in this option:</div>
+        ${showScope?`<div class="sub">What's included in this option:</div>
         <table class="p-scope">
           <thead><tr><th class="qty">QTY</th><th>Item &amp; description</th><th style="text-align:right">Amount</th></tr></thead>
           <tbody>${rows||'<tr><td colspan="3" style="padding:14px;color:#888">No items in this option.</td></tr>'}</tbody>
-        </table>
+        </table>`:''}
         <div class="p-invest">
           <div class="pi-title">Your Investment</div>
           ${savingsLine}
