@@ -549,6 +549,11 @@
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-soft);margin-bottom:8px">Printed proposal options</div>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="optCompare" checked onchange="toggleProj('showCompare',this.checked)"> Show side-by-side comparison table</label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="optDetail" checked onchange="toggleProj('showDetail',this.checked)"> Show full itemized detail for each option</label>
+          <div id="featSection" style="margin-top:12px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-soft);margin-bottom:6px">Comparison feature rows</div>
+            <div id="featRows"></div>
+            <button class="btn-ghost btn-sm" onclick="addFeatureRow()" style="margin-top:4px">+ Add feature row</button>
+          </div>
         </div>
         <div style="padding:12px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line-soft)">
           <button class="btn-danger btn-sm" onclick="clearOption()">Clear this option</button>
@@ -710,6 +715,8 @@
   </div>
 </div>
 <div class="app-footer">Always On Quote Builder <span id="verLabel"></span></div>
+<datalist id="featLabels"><option value="Whole-home power"><option value="Manages pool heater, A/C & range"><option value="Load-shedding modules"><option value="Cellular monitoring"><option value="Standby power"><option value="Surge protection"></datalist>
+<datalist id="featVals"><option value="Yes"><option value="Included"><option value="More headroom"><option value="Standard"><option value="&mdash;"></datalist>
 <div class="toast" id="toast"></div>
 <div id="printDoc"></div>
 
@@ -1068,7 +1075,7 @@ let catalog=[], project=null, sb=null, online=false, activeCat='All', activeOpt=
 const MAX_OPTIONS=5;
 const OPT_NAMES=['Option A','Option B','Option C','Option D','Option E'];
 function newOption(name){return {name:name||'Option A',recommended:false,lines:[],discounts:[{label:'Cash & check discount',type:'pct',val:0}],saveOverride:0};}
-function newProject(){return {id:'p'+rid(16),customer:'',address:'',number:'',date:today(),updated:Date.now(),showCompare:true,showDetail:true,options:[newOption('Option A')]};}
+function newProject(){return {id:'p'+rid(16),customer:'',address:'',number:'',date:today(),updated:Date.now(),showCompare:true,showDetail:true,featureRows:[],options:[newOption('Option A')]};}
 function curOpt(){return project.options[activeOpt];}
 let cfg = load(K_CFG,{url:SUPABASE_URL,key:SUPABASE_KEY});
 function load(k,fb){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch(e){return fb;}}
@@ -2002,6 +2009,33 @@ function renderDiscRows(){
     </div>`).join('');
 }
 function setDisc(i,key,v){ const o=curOpt(); const ds=migrateDiscounts(o); if(!ds[i])return; ds[i][key]= key==='val'?(parseFloat(v)||0):v; saveProject(); renderQuote(); }
+const FEAT_SUGGEST=['Whole-home power','Manages pool heater, A/C & range','Load-shedding modules','Cellular monitoring','Standby power','Surge protection'];
+const FEAT_VALS=['Yes','Included','More headroom','Standard','\u2014'];
+function ensureFeat(){ if(!Array.isArray(project.featureRows)) project.featureRows=[]; return project.featureRows; }
+function addFeatureRow(){ ensureFeat().push({label:'',vals:project.options.map(()=>'')}); saveProject(); renderFeatureRows(); }
+function removeFeatureRow(i){ ensureFeat().splice(i,1); saveProject(); renderFeatureRows(); }
+function setFeat(i,key,v,oi){ const f=ensureFeat()[i]; if(!f)return; if(key==='label')f.label=v; else { f.vals=f.vals||[]; f.vals[oi]=v; } saveProject(); }
+function renderFeatureRows(){
+  const wrap=document.getElementById('featRows'); if(!wrap) return;
+  const fr=ensureFeat();
+  const optNames=project.options.map((o,i)=>esc(o.name||('Option '+(i+1))));
+  wrap.innerHTML = fr.length ? fr.map((f,i)=>{
+    // keep vals length in sync with option count
+    f.vals=project.options.map((_,oi)=>(f.vals&&f.vals[oi])||'');
+    const valInputs=project.options.map((o,oi)=>`
+      <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
+        <span style="font-size:10px;color:#999">${esc(o.name||('Opt '+(oi+1)))}</span>
+        <input list="featVals" value="${(f.vals[oi]||'').replace(/"/g,'&quot;')}" oninput="setFeat(${i},'val',this.value,${oi})" placeholder="\u2014" style="font-size:12px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;width:100%">
+      </div>`).join('');
+    return `<div style="border:1px solid var(--line-soft);border-radius:8px;padding:8px;margin-bottom:8px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input list="featLabels" value="${(f.label||'').replace(/"/g,'&quot;')}" oninput="setFeat(${i},'label',this.value)" placeholder="Feature name (e.g. Whole-home power)" style="flex:1;font-size:13px;font-weight:600;padding:6px 8px;border:1px solid var(--line);border-radius:6px">
+        <button class="disc-x" onclick="removeFeatureRow(${i})" title="Remove row">&times;</button>
+      </div>
+      <div style="display:flex;gap:6px">${valInputs}</div>
+    </div>`;
+  }).join('') : '<div style="font-size:12px;color:#999;padding:4px 0">No custom rows. The table auto-fills what it can from line items; add rows here for features like &ldquo;Whole-home power&rdquo;.</div>';
+}
 function optTotals(o){
   const sub=o.lines.reduce((s,l)=>s+l.price*l.qty,0);
   const ds=migrateDiscounts(o);
@@ -2065,7 +2099,7 @@ async function clearOption(){
   const o=curOpt(); o.lines=[]; saveProject(); fillDisc(); renderQuote(); toast('Option cleared');
 }
 function toggleProj(key,on){ project[key]=on; saveProject(); }
-function fillDisc(){ const o=curOpt(); setv('saveOverride',o.saveOverride||0); renderDiscRows(); }
+function fillDisc(){ const o=curOpt(); setv('saveOverride',o.saveOverride||0); renderDiscRows(); renderFeatureRows(); }
 function fillProjectMeta(){
   const cc=document.getElementById('optCompare'); if(cc) cc.checked = project.showCompare!==false;
   const cd=document.getElementById('optDetail'); if(cd) cd.checked = project.showDetail!==false;
@@ -2243,6 +2277,41 @@ function fullDocHtml(project, o2){
       }).join('');
       modelRow=`<tr><td class="rowlbl">Generator Model</td>${cells}</tr>`;
     }
+    // Auto "Whole-home power" row by generator KW (unless the user added their own)
+    const kwNumA=o=>{ for(const l of (o.lines||[])){ const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw/i); if(m) return parseFloat(m[1]); } return null; };
+    const maxKwA=Math.max(...opts.map(o=>kwNumA(o)||0));
+    const genCount=opts.filter(o=>kwNumA(o)!==null).length;
+    const userHasWholeHome=(project.featureRows||[]).some(f=>/whole[-\s]?home/i.test(f.label||''));
+    let autoWholeHome='';
+    if(genCount>=2 && !userHasWholeHome){
+      const cells=opts.map(o=>{ const rec=o.recommended?' reccol':''; const k=kwNumA(o);
+        const v = k===null ? '<span class=\'no\'>&mdash;</span>' : (k>=maxKwA?'More headroom':'Standard');
+        return `<td class="${rec.trim()}">${v}</td>`; }).join('');
+      autoWholeHome=`<tr><td class="rowlbl">Whole-home power</td>${cells}</tr>`;
+    }
+    // Custom feature rows (typed per proposal); "Whole-home power" auto-fills by KW
+    const kwNum=o=>{ for(const l of (o.lines||[])){ const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw/i); if(m) return parseFloat(m[1]); } return null; };
+    const maxKw=Math.max(...opts.map(o=>kwNum(o)||0));
+    let featHtml='';
+    (project.featureRows||[]).forEach(f=>{
+      const isWholeHome=/whole[-\s]?home|headroom|power/i.test(f.label||'');
+      const anyVal=(f.vals||[]).some(v=>(v||'').trim());
+      if(!(f.label||'').trim() && !anyVal) return; // skip fully empty
+      const cells=opts.map((o,oi)=>{
+        const rec=o.recommended?' reccol':'';
+        let v=((f.vals||[])[oi]||'').trim();
+        // auto-fill whole-home power by generator KW when this cell was left blank
+        if(!v && isWholeHome){
+          const k=kwNum(o);                 // null = no generator line in this option
+          if(k!==null){                      // only options that HAVE a generator get auto-filled
+            if(opts.length===1) v='Standard';
+            else v=(k>=maxKw?'More headroom':'Standard');
+          }
+        }
+        return `<td class="${rec.trim()}">${v?esc(v):'<span class=\'no\'>&mdash;</span>'}</td>`;
+      }).join('');
+      featHtml+=`<tr><td class="rowlbl">${esc(f.label||'')}</td>${cells}</tr>`;
+    });
     const colw=Math.floor(62/opts.length);
     const colgroup=`<col style="width:38%">`+opts.map(()=>`<col style="width:${colw}%">`).join('');
 
@@ -2261,7 +2330,7 @@ function fullDocHtml(project, o2){
       <div class="p-choose-sub">Every option below is a complete, permitted, professionally installed system. Compare what's included, then choose the one that fits you best.</div>
       <table class="p-cmp"><colgroup>${colgroup}</colgroup>
         <thead><tr><th class="lbl">Generator Size</th>${headCells}</tr></thead>
-        <tbody>${modelRow}${bodyRows}
+        <tbody>${modelRow}${autoWholeHome}${featHtml}${bodyRows}
           <tr class="priceRow"><td class="rowlbl">Your price (cash/check)</td>${priceCells}</tr>
         </tbody>
       </table>
