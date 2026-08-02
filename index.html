@@ -1975,6 +1975,10 @@ async function deleteSelected(){
   if(typed===null) return;
   if(online){ try{ await sb.from('proposals').delete().in('id',ids); }catch(e){} }
   savedCache=savedCache.filter(x=>!ids.includes(x.id));
+  if(project && ids.includes(project.id)){
+    project=newProject(); activeOpt=0; lput(K_QUOTE,project);
+    fillProjectMeta(); renderOptTabs(); fillDisc(); renderQuote();
+  }
   const sa=document.getElementById('selAll'); if(sa) sa.checked=false;
   renderSavedList(); toast(ids.length+' deleted');
 }
@@ -1986,6 +1990,12 @@ async function deleteProposal(pid){
   if(typed===null)return;
   if(online){ try{ await sb.from('proposals').delete().eq('id',pid); }catch(e){} }
   savedCache=savedCache.filter(x=>x.id!==pid);
+  // If we just deleted the proposal currently open in the builder, start a fresh one
+  // so it can't linger on screen and get re-saved (popping back into the list).
+  if(project && project.id===pid){
+    project=newProject(); activeOpt=0; lput(K_QUOTE,project);
+    fillProjectMeta(); renderOptTabs(); fillDisc(); renderQuote();
+  }
   renderSavedList(); toast('Proposal deleted');
 }
 function migrateDiscounts(o){
