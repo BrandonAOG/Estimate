@@ -2401,11 +2401,15 @@ function fullDocHtml(project, o2){
       // tank gallons -> ~80% usable fill. days = usable / (burn * 24).
       const runtimeDays=o=>{
         const k=kwNumA?kwNumA(o):null;
+        const gl=(o.lines||[]).find(l=>/(\d+(?:\.\d+)?)\s*kw/i.test(l.name||''));
         const tl=(o.lines||[]).find(l=>/(\d+)\s*gal/i.test(l.name||'')&&/tank/i.test(l.name||''));
-        if(k===null||!tl) return null;
+        if(!gl||!tl) return null;
         const gm=(tl.name||'').match(/(\d+)\s*gal/i); if(!gm) return null;
         const gal=parseInt(gm[1])*(tl.qty||1);
-        const days=(gal*0.8)/((k*0.095)*24);
+        // Real-world averages at ~50% load: air-cooled ~2.1 gal/hr, liquid-cooled ~3.0 gal/hr.
+        const hay=((gl.name||'')+' '+(gl.desc||'')).toLowerCase();
+        let gph = /liquid/.test(hay) ? 3.0 : /air/.test(hay) ? 2.1 : (k!==null&&k>=30 ? 3.0 : 2.1);
+        const days=(gal*0.8)/(gph*24);
         return Math.round(days*10)/10;
       };
       const recDays=runtimeDays(recOpt);
