@@ -1709,6 +1709,7 @@ async function submitApproval(pid){
   const sig=document.getElementById('sigpad').toDataURL('image/png');
   const p=AV.proposal;
   p.approval={ approved:true, name, option:(p.options[AV.selected]||{}).name||'', optionIndex:AV.selected, signature:sig, at:new Date().toISOString() };
+  if(!(p.customer||'').trim()) p.customer=name; // backfill customer name from the signer if blank
   const btn=document.getElementById('avApproveBtn'); btn.disabled=true; btn.textContent='Submitting\u2026';
   try{
     const {data:ok,error}=await sb.rpc('submit_decision',{pid:pid, decision:{approval:p.approval}});
@@ -1904,7 +1905,7 @@ function renderSavedList(){
     return `<div class="saved-row">
       <input type="checkbox" class="sel-box" data-id="${esc(r.id)}" data-ap="${ap?1:0}" onchange="updateSelUI()" style="width:18px;height:18px;flex:0 0 auto;margin-right:2px;accent-color:#d84343">
       <div class="saved-main">
-        <div class="saved-name">${esc(r.customer||'(no name)')}${r.number?' &middot; #'+esc(r.number):''}${badge}</div>
+        <div class="saved-name">${esc(r.customer|| (d.approval&&d.approval.name) || (d.decline&&d.decline.name) || '(no name)')}${r.number?' &middot; #'+esc(r.number):''}${badge}</div>
         <div class="saved-meta">${opts} option${opts===1?'':'s'} &middot; up to ${money(total)} &middot; saved ${when}${apMeta}${viewMeta}</div>
       </div>
       <div class="saved-actions">
@@ -2429,7 +2430,6 @@ function fullDocHtml(project, o2){
     <div class="p-hero">Never Lose Power Again.</div>
     <div class="p-lede">A fully automatic, whole-home Generac standby system &mdash; professionally installed, permitted, and ${ledeWarranty}. When the grid goes down, your home stays on.</div>
     <div class="p-banner">Everything is handled for you &mdash; start to finish</div>
-    ${includedHtml}
     ${cmpHtml}
     ${detailHtml}
     <div class="p-banner" style="margin-top:18px">This pricing is valid for 30 days</div>
