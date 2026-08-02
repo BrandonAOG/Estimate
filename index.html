@@ -531,6 +531,12 @@
           </select>
         </div>
         <div class="cat-tabs" id="catTabs"></div>
+        <div id="catSelBar" style="display:none;align-items:center;gap:8px;padding:8px 14px;background:#fff7e0;border-bottom:1px solid var(--amber);font-size:13px;flex-wrap:wrap">
+          <b><span id="catSelCount">0</span> selected</b>
+          <button class="btn-amber btn-sm" onclick="addSelectedToQuote()">Add to quote</button>
+          <select id="catMoveSel" style="padding:6px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;background:#fff"><option value="">Move to category&hellip;</option></select>
+          <button class="btn btn-sm" onclick="clearCatSel()">Clear</button>
+        </div>
         <div class="panel-body" id="catalogList"></div>
       </div>
     </div>
@@ -1293,6 +1299,7 @@ function renderCatalog(){
   if(!items.length){list.innerHTML='<div class="empty"><b>No items found</b>Try another category or search, or add one up top.</div>';return;}
   const row=it=>`
     <div class="item">
+      <input type="checkbox" class="cat-sel" data-id="${esc(it.id)}" onclick="event.stopPropagation()" onchange="updateCatSelUI()" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--amber-deep)">
       <div class="item-main" onclick="addLine('${it.id}')">
         <div class="item-name">${esc(it.name)}</div>
         <div class="item-desc">${esc(it.desc||'')}</div>
@@ -2153,6 +2160,30 @@ function fillProjectMeta(){
 }
 
 /* ================= ITEM CRUD ================= */
+function catSelIds(){ return [...document.querySelectorAll('#catalogList .cat-sel:checked')].map(b=>b.dataset.id); }
+function updateCatSelUI(){
+  const n=catSelIds().length;
+  const bar=document.getElementById('catSelBar'); if(!bar) return;
+  bar.style.display=n?'flex':'none';
+  document.getElementById('catSelCount').textContent=n;
+  // fill the move-to dropdown with all categories
+  const sel=document.getElementById('catMoveSel');
+  const cats=[...new Set(catalog.map(c=>c.cat||'Uncategorized'))].sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML='<option value="">Move to category&hellip;</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.onchange=async function(){ if(this.value) await moveSelectedToCat(this.value); this.value=''; };
+}
+function clearCatSel(){ document.querySelectorAll('#catalogList .cat-sel:checked').forEach(b=>b.checked=false); updateCatSelUI(); }
+function addSelectedToQuote(){
+  const ids=catSelIds(); if(!ids.length) return;
+  ids.forEach(id=>addLine(id));
+  clearCatSel(); toast(ids.length+' item'+(ids.length===1?'':'s')+' added to quote');
+}
+async function moveSelectedToCat(cat){
+  const ids=catSelIds(); if(!ids.length) return;
+  ids.forEach(id=>{ const it=catalog.find(c=>c.id===id); if(it) it.cat=cat; });
+  if(online){ try{ await sb.from('catalog').update({cat}).in('id',ids); }catch(e){} }
+  persistCat(); renderTabs(); renderCatalog(); toast(ids.length+' moved to '+cat);
+}
 function fillCatList(){
   const cats=[...new Set(catalog.map(c=>c.cat||'Uncategorized'))].sort((a,b)=>a.localeCompare(b));
   const dl=document.getElementById('catList');
