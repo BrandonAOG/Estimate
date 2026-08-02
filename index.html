@@ -100,7 +100,7 @@
   .opt-del-btn:hover{color:var(--red);border-color:#f0d6d2}
   .item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;transition:.1s}
   .item:hover{background:var(--bg)}
-  .item + .item{border-top:1px solid var(--line-soft)}
+  .item + .item{border-top:2px solid var(--amber)}
   .item-main{flex:1;min-width:0;cursor:pointer}
   .item-name{font-weight:600;font-size:14px}
   .item-desc{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -117,7 +117,7 @@
   #adLabel{display:block!important}
   .field input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit}
   .field input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.15)}
-  .line{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+  .line{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:2px solid var(--amber)}
   .line-stacked{display:block}
   .line-stacked .line-name{width:100%}
   .line-stacked .name-edit{width:100%}
@@ -2082,7 +2082,6 @@ function renderQuote(){
         <div class="line-controls-r">
           <div class="qty"><button onclick="bump(${i},-1)">&minus;</button><input value="${l.qty}" onchange="setQty(${i},this.value)"><button onclick="bump(${i},1)">+</button></div>
           <div class="line-total">${money(l.price*l.qty)}</div>
-          <label class="sync-box" title="${online?'Also update this price in the shared catalog for everyone':'Sync is only available in Team online mode'}"><input type="checkbox" ${l.sync?'checked':''} ${!online?'disabled':''} onchange="toggleSync(${i},this.checked)"><span>Sync</span></label>
           <button class="line-x" title="Remove" onclick="removeLine(${i})">&times;</button>
         </div>
       </div>
