@@ -226,6 +226,20 @@
   .av-declined{text-align:center;padding:46px 26px}
   .av-declined .ic{font-size:46px}
   .av-declined .big{font-size:23px;font-weight:800;color:var(--ink);margin-top:6px}
+  .av-estimate{max-width:460px;margin:20px auto 0;text-align:left;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+  .av-estimate summary{cursor:pointer;padding:13px 16px;font-weight:800;color:var(--amber-deep);font-size:14px;list-style:none;display:flex;align-items:center;justify-content:space-between}
+  .av-estimate summary::-webkit-details-marker{display:none}
+  .av-estimate summary::after{content:'\25be';color:#bbb}
+  .av-estimate[open] summary::after{content:'\25b4'}
+  .av-est-inner{padding:0 16px 16px}
+  .av-est-opt{font-weight:800;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+  .av-est-tbl{width:100%;border-collapse:collapse;font-size:14px}
+  .av-est-tbl td{padding:7px 4px;border-top:1px solid var(--line-soft);vertical-align:top}
+  .av-est-tbl td.qty{width:32px;color:#888}
+  .av-est-tbl td.pr{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .av-est-tbl .nm{font-weight:600}
+  .av-est-tbl .ds{font-size:12px;color:#888;margin-top:2px}
+  .av-est-tbl tr.tot td{border-top:2px solid #222;font-weight:800;font-size:16px;padding-top:10px}
   .av-declined .callbox{background:#fff8e6;border:1px solid #f0dca0;border-radius:12px;padding:16px;margin:18px auto 0;max-width:420px;text-align:left}
   .av-declined .callbox .row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:15px}
   .av-declined .callbox .row + .row{border-top:1px solid #f0dca0}
@@ -1577,7 +1591,7 @@ function renderApprovalView(pid){
             ${['Price is too high','Timing is not right','Comparing other quotes','I have some questions','Changed my mind','Something looks off'].map((r)=>`<button type="button" class="decline-reason" data-r="${esc(r)}" onclick="pickReason(this)">${esc(r)}</button>`).join('')}
           </div>
           <textarea id="declineNote" placeholder="Anything you'd like to add? (optional)"></textarea>
-          <button class="btn-decline-send" id="avDeclineSend" onclick="submitDecline('${pid}')">Send &amp; request a call</button>
+          <button class="btn-decline-send" id="avDeclineSend" onclick="submitDecline('${pid}')">Send</button>
           <button class="btn-decline-cancel" onclick="hideDecline()">Never mind, go back</button>
         </div>
         <div style="text-align:center;margin-top:16px;font-size:13px;color:#888">
@@ -1596,6 +1610,21 @@ function selectAvOpt(i){
     const r=el.querySelector('input'); if(r) r.checked=(idx===i);
   });
   renderAvDoc();
+}
+function avEstimateBlock(p, idx){
+  const o=(p.options&&p.options[idx])||(p.options&&p.options[0]); if(!o) return '';
+  const t=optTotalsPlain(o);
+  const rows=(o.lines||[]).map(l=>`<tr><td class="qty">${l.qty}</td><td><div class="nm">${esc(l.name)}</div>${l.desc?`<div class="ds">${esc(l.desc)}</div>`:''}</td><td class="pr">${money(l.price*l.qty)}</td></tr>`).join('');
+  const discRow=t.disc>0?`<tr><td></td><td style="text-align:right;color:#666">Discount</td><td class="pr">&ndash;${money(t.disc)}</td></tr>`:'';
+  return `<details class="av-estimate">
+    <summary>View your estimate</summary>
+    <div class="av-est-inner">
+      <div class="av-est-opt">${esc(o.name||'Your option')}</div>
+      <table class="av-est-tbl"><tbody>${rows}${discRow}
+        <tr class="tot"><td></td><td style="text-align:right">Total</td><td class="pr">${money(t.total)}</td></tr>
+      </tbody></table>
+    </div>
+  </details>`;
 }
 function renderAvDoc(){
   // reuse the print builder look by temporarily rendering into avDoc
@@ -1674,6 +1703,7 @@ function renderApprovedConfirmation(p){
       <div class="big">Approved &mdash; thank you!</div>
       <p style="color:#555;max-width:440px;margin:12px auto 0">Thanks ${esc(a.name||'')}. Your approval of <b>${esc(a.option||'your proposal')}</b> has been sent to Always On Generators. Your dedicated project manager will reach out shortly to walk you through the next steps.</p>
       <p style="color:#888;font-size:13px;margin-top:18px">Questions? Call (239) 839-3553.</p>
+      ${avEstimateBlock(p, (p.approval&&typeof p.approval.optionIndex==='number')?p.approval.optionIndex:0)}
     </div></div>`;
 }
 /* ---- Decline flow ---- */
@@ -1694,7 +1724,7 @@ async function submitDecline(pid){
     const {data:ok,error}=await sb.rpc('submit_decision',{pid:pid, decision:{decline:p.decline}});
     if(error||!ok) throw error||new Error('rejected');
     renderDeclinedConfirmation(p);
-  }catch(e){ btn.disabled=false; btn.textContent='Send & request a call'; toast('Could not send \u2014 please try again'); }
+  }catch(e){ btn.disabled=false; btn.textContent='Send'; toast('Could not send \u2014 please try again'); }
 }
 function renderDeclinedConfirmation(p){
   const est=(p.estimator)||{name:'',phone:''};
@@ -1710,6 +1740,7 @@ function renderDeclinedConfirmation(p){
         <div class="row"><span>Always On office</span><a href="tel:2398393553">(239) 839-3553</a></div>
       </div>
       <p style="color:#888;font-size:13px;margin-top:18px">Your note has been sent to our team.</p>
+      ${avEstimateBlock(p, 0)}
     </div></div>`;
 }
 function projectIsBlank(p){
