@@ -122,8 +122,9 @@
   .line-stacked .line-name{width:100%;position:relative;padding-left:20px}
   .drag-handle{position:absolute;left:0;top:4px;cursor:grab;color:var(--ink-soft);font-size:13px;letter-spacing:-2px;user-select:none;padding:2px 4px 2px 0}
   .drag-handle:active{cursor:grabbing}
-  .line-wrap.dragging{opacity:.5}
-  .line-wrap.drag-over .line{border-top:2px solid var(--amber-deep)}
+  .line-wrap.dragging{opacity:.6}
+  .line-wrap.dragging .line{background:rgba(244,180,0,.35)}
+
   .line-stacked .name-edit{width:100%}
   .line-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
   .line-controls-r{display:flex;align-items:center;gap:8px;flex:0 0 auto}
@@ -1393,19 +1394,45 @@ function addLine(itemId){
   if(ex)ex.qty++;else o.lines.push({itemId,name:it.name,desc:it.desc,model:it.model||'',price:it.price,qty:1});
   saveProject();renderQuote();toast(it.name+' \u2192 '+(o.name||'option'));
 }
-let _dragLine=null;
+let _dragEl=null;
 function moveLine(from,to){
   const L=curOpt().lines;
   if(from===to||from<0||to<0||from>=L.length||to>=L.length) return;
   const [it]=L.splice(from,1); L.splice(to,0,it);
   saveProject(); renderQuote();
 }
-function lineDragStart(e,i){ _dragLine=i; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',String(i));}catch(_){} const wrapEl=e.target.closest('.line-wrap'); if(wrapEl) wrapEl.classList.add('dragging'); }
-function lineDragEnd(e){ _dragLine=null; document.querySelectorAll('.line-wrap.dragging,.line-wrap.drag-over').forEach(el=>el.classList.remove('dragging','drag-over')); }
-function lineDragOver(e,i){ if(_dragLine===null) return; e.preventDefault(); e.dataTransfer.dropEffect='move';
-  document.querySelectorAll('.line-wrap.drag-over').forEach(el=>el.classList.remove('drag-over'));
-  const el=e.currentTarget; if(el) el.classList.add('drag-over'); }
-function lineDrop(e,i){ if(_dragLine===null) return; e.preventDefault(); const from=_dragLine; _dragLine=null; moveLine(from,i); }
+function lineDragStart(e,i){
+  const wrapEl=e.target.closest('.line-wrap'); if(!wrapEl) return;
+  _dragEl=wrapEl; wrapEl.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',String(i));}catch(_){}
+  // Transparent drag image: the card ITSELF moves live through the list instead of a floating ghost
+  try{ const px=document.createElement('canvas'); px.width=px.height=1; e.dataTransfer.setDragImage(px,0,0); }catch(_){}
+}
+function lineDragOver(e,i){
+  if(!_dragEl) return; e.preventDefault(); e.dataTransfer.dropEffect='move';
+  const target=e.currentTarget;
+  if(!target || target===_dragEl) return;
+  const r=target.getBoundingClientRect();
+  const before = e.clientY < r.top + r.height/2;
+  const parent=target.parentNode;
+  if(before) parent.insertBefore(_dragEl, target);
+  else parent.insertBefore(_dragEl, target.nextSibling);
+}
+function lineDrop(e,i){ if(_dragEl) e.preventDefault(); }
+function lineDragEnd(e){
+  if(!_dragEl) return;
+  _dragEl.classList.remove('dragging');
+  // Commit: read the new DOM order and rebuild the lines array to match
+  const wraps=[...document.querySelectorAll('#quoteLines .line-wrap')];
+  const order=wraps.map(el=>parseInt(el.dataset.li)).filter(n=>!isNaN(n));
+  const L=curOpt().lines;
+  if(order.length===L.length){
+    curOpt().lines=order.map(idx=>L[idx]);
+    saveProject();
+  }
+  _dragEl=null;
+  renderQuote();
+}
 function setLineDisc(i,key,v){ const l=curOpt().lines[i]; if(!l)return; l[key]= key==='discVal'?(parseFloat(v)||0):v; saveProject(); renderQuote(); }
 function setQty(i,v){curOpt().lines[i].qty=Math.max(1,parseInt(v)||1);saveProject();renderQuote();}
 function bump(i,d){setQty(i,(curOpt().lines[i].qty||1)+d);}
