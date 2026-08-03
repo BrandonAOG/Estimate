@@ -1735,7 +1735,14 @@ async function initApprovalView(pid){
     const {data,error}=await sb.rpc('get_proposal',{pid:pid});
     if(error||!data){ throw error||new Error('not found'); }
     AV.proposal=data||null;
-    try{ sb.rpc('record_view',{pid:pid}).then(()=>{},()=>{}); }catch(e){} // fire-and-forget view tracking (.then() is required or supabase-js never sends it)
+    // Count the view ONLY for real customers. Logged-in staff previewing their own link
+    // (e.g. right after starting a new proposal) shouldn't inflate "Viewed N x".
+    try{
+      sb.auth.getSession().then(s=>{
+        const isStaff=!!(s&&s.data&&s.data.session);
+        if(!isStaff) sb.rpc('record_view',{pid:pid}).then(()=>{},()=>{});
+      },()=>{ sb.rpc('record_view',{pid:pid}).then(()=>{},()=>{}); });
+    }catch(e){}
     if(!AV.proposal){ throw new Error('empty'); }
     // if already approved, show confirmation
     if(AV.proposal.approval && AV.proposal.approval.approved){
