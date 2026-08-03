@@ -1590,8 +1590,20 @@ async function saveProfile(){
     toast('Profile saved - it follows your login everywhere');
   }catch(e){ toast('Could not save profile - run the profiles SQL first'); }
 }
-function saveEstimator(){ lput(K_EST,{name:val('qEstName'),phone:val('qEstPhone')}); }
-function fillEstimator(){ const e=load(K_EST,{name:'',phone:''})||{name:'',phone:''}; setv('qEstName',e.name||''); setv('qEstPhone',e.phone||''); }
+function saveEstimator(){
+  // Manual overwrite: typing in the fields updates THIS proposal's estimator.
+  project.estimator={ name:val('qEstName').trim(), phone:val('qEstPhone').trim() };
+  saveProject();
+  // If this device had no default yet, adopt it as the default too.
+  const mine=load(K_EST,null);
+  if(!mine || (!(mine.name||'').trim() && !(mine.phone||'').trim())) lput(K_EST,{name:val('qEstName'),phone:val('qEstPhone')});
+}
+function fillEstimator(){
+  const pe=(typeof project!=='undefined' && project && project.estimator)||null;
+  const hasPe=pe && ((pe.name||'').trim()||(pe.phone||'').trim());
+  const e=hasPe?pe:(load(K_EST,{name:'',phone:''})||{name:'',phone:''});
+  setv('qEstName',e.name||''); setv('qEstPhone',e.phone||'');
+}
 function estimator(){ return load(K_EST,{name:'',phone:''})||{name:'',phone:''}; }
 function readDisc(){ const o=curOpt(); o.saveOverride=parseFloat(val('saveOverride'))||0; }
 function saveProject(){ readProjectMeta(); project.updated=Date.now(); lput(K_QUOTE,project); scheduleCloudSave(); }
@@ -1633,9 +1645,12 @@ async function cloudSaveNow(){
 async function shareForApproval(){
   if(!online){ toast('Go Team online first to share a link'); return; }
   if(!(project.customer||'').trim() && !project.options.some(o=>o.lines.length)){ toast('Add customer & items first'); return; }
-  // stamp the estimator's name/phone onto the proposal so the customer's device can show it
-  const est=estimator();
-  project.estimator={ name:(est.name||'').trim(), phone:(est.phone||'').trim() };
+  // Stamp the estimator onto the proposal ONLY if it doesn't have one yet.
+  // An existing estimator stays put even when a different team member shares it.
+  if(!project.estimator || (!(project.estimator.name||'').trim() && !(project.estimator.phone||'').trim())){
+    const est=estimator();
+    project.estimator={ name:(est.name||'').trim(), phone:(est.phone||'').trim() };
+  }
   await cloudSaveNow(); // make sure the latest is in the cloud
   const base=location.origin+location.pathname;
   const link=base+'?approve='+encodeURIComponent(project.id);
@@ -2059,7 +2074,7 @@ function openProposal(pid){
   project = r.data && r.data.options ? r.data : newProject();
   if(!project.id) project.id=pid;
   activeOpt=0; lput(K_QUOTE,project);
-  fillProjectMeta(); renderOptTabs(); renderQuote();
+  fillProjectMeta(); fillEstimator(); renderOptTabs(); renderQuote();
   closeSaved(); toast('Opened '+(project.customer||'proposal'));
 }
 function selBoxes(){ return [...document.querySelectorAll('#savedList .sel-box')]; }
@@ -2379,11 +2394,12 @@ function importData(e){
 /* ================= PRINT ================= */
 function buildPrintDoc(){
   readProjectMeta(); readDisc();
-  const est=estimator();
+  // Prefer the estimator saved ON the proposal; local profile is only a fallback for unsaved work
+  const pe=(project.estimator&&((project.estimator.name||'').trim()||(project.estimator.phone||'').trim()))?project.estimator:estimator();
   document.getElementById('printDoc').innerHTML=fullDocHtml(project,{
     online: online,
     showApprove: online && !((project.approval&&project.approval.approved)||(project.decline&&project.decline.declined)),
-    estName:(est.name||'').trim(), estPhone:(est.phone||'').trim()
+    estName:(pe.name||'').trim(), estPhone:(pe.phone||'').trim()
   });
 }
 function fullDocHtml(project, o2){
