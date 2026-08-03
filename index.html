@@ -527,6 +527,7 @@
       <button class="btn-amber btn-sm" onclick="shareForApproval()">&#128279; Share for approval</button>
       <button class="btn-amber btn-sm" onclick="saveProposalNamed()" style="display:none">&#128190; Save proposal</button>
       <button class="btn-amber btn-sm" onclick="openItemModal()">+ Add item</button>
+      <button class="btn btn-sm" onclick="openTemplates()">&#9889; Templates</button>
     </div>
   </div>
 </header>
@@ -653,9 +654,15 @@
   <div class="modal" style="max-width:560px">
     <div class="modal-head">&#9889; Quick templates</div>
     <div class="modal-body" style="max-height:60vh;overflow:auto">
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <input id="tplName" placeholder="Name this template (e.g. 26KW Air-Cooled Package)" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit">
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <input id="tplName" placeholder="Name this template" style="flex:2;min-width:150px;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit">
+        <input id="tplCat" list="tplCats" placeholder="Category (optional)" style="flex:1;min-width:110px;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit">
+        <datalist id="tplCats"></datalist>
         <button class="btn-amber btn-sm" onclick="saveTemplateFromCurrent()">Save current option</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="tplSearch" placeholder="Search templates&hellip;" oninput="renderTplList()" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit">
+        <select id="tplCatFilter" onchange="renderTplList()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;background:#fff"><option value="">All categories</option></select>
       </div>
       <div id="tplList" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
@@ -1365,7 +1372,7 @@ function renderCatalog(){
 function renderOptTabs(){
   const tabs=project.options.map((o,i)=>
     `<button class="opt-tab ${i===activeOpt?'active':''} ${o.recommended?'rec':''}" onclick="switchOpt(${i})">${esc(o.name||OPT_NAMES[i])}</button>`).join('');
-  const addBtn=`<button class="opt-add" onclick="addOption()" ${project.options.length>=MAX_OPTIONS?'disabled':''} title="Add another estimate">+ Add option</button><button class="opt-add" onclick="openTemplates()" title="Quick templates">&#9889; Templates</button>`;
+  const addBtn=`<button class="opt-add" onclick="addOption()" ${project.options.length>=MAX_OPTIONS?'disabled':''} title="Add another estimate">+ Add option</button>`;
   document.getElementById('optTabs').innerHTML=tabs+addBtn;
   const o=curOpt();
   document.getElementById('optNamebar').innerHTML=`
@@ -1408,22 +1415,31 @@ function toggleRec(){
   o.recommended=willRec;
   saveProject(); renderOptTabs();
 }
-const K_TPL='aog_templates_v1'; const MAX_TPL=20;
+const K_TPL='aog_templates_v1'; const MAX_TPL=25;
 let templates=load(K_TPL,[])||[];
 async function loadTemplates(){
   if(!online) return;
   try{ const {data}=await sb.from('templates').select('*').order('name');
-    if(data){ templates=data.map(r=>({id:r.id,name:r.name,data:r.data})); lput(K_TPL,templates); } }catch(e){}
+    if(data){ templates=data.map(r=>({id:r.id,name:r.name,cat:r.cat||'',data:r.data})); lput(K_TPL,templates); } }catch(e){}
 }
 function openTemplates(){ document.getElementById('tplModal').classList.add('on'); loadTemplates().then(renderTplList); renderTplList(); }
 function closeTemplates(){ document.getElementById('tplModal').classList.remove('on'); }
 function tplSummary(t){ const n=(t.data.lines||[]).length; const tot=(t.data.lines||[]).reduce((s,l)=>s+lineNet(l).net,0); return n+' item'+(n===1?'':'s')+' \u00b7 '+money(tot); }
 function renderTplList(){
   const el=document.getElementById('tplList'); if(!el) return;
+  // fill category datalist + filter dropdown from existing template categories
+  const cats=[...new Set(templates.map(t=>(t.cat||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const dl=document.getElementById('tplCats'); if(dl) dl.innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
+  const sel=document.getElementById('tplCatFilter');
+  if(sel){ const cur=sel.value; sel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${esc(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join(''); }
   if(!templates.length){ el.innerHTML='<div style="color:var(--ink-soft);font-size:13px;padding:8px 0">No templates yet. Build an option, then save it here \u2014 the whole team gets it.</div>'; return; }
-  el.innerHTML=templates.map(t=>`
+  const q=(val('tplSearch')||'').toLowerCase().trim();
+  const cf=(sel&&sel.value)||'';
+  let list=templates.filter(t=>(!q||((t.name||'')+' '+(t.cat||'')).toLowerCase().includes(q)) && (!cf||(t.cat||'')===cf));
+  if(!list.length){ el.innerHTML='<div style="color:var(--ink-soft);font-size:13px;padding:8px 0">No templates match.</div>'; return; }
+  el.innerHTML=list.map(t=>`
     <div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="flex:1;min-width:140px"><b>${esc(t.name)}</b><div style="font-size:12px;color:var(--ink-soft)">${tplSummary(t)}</div></div>
+      <div style="flex:1;min-width:140px"><b>${esc(t.name)}</b>${t.cat?` <span style="font-size:11px;background:#f2ede2;border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin-left:4px">${esc(t.cat)}</span>`:''}<div style="font-size:12px;color:var(--ink-soft)">${tplSummary(t)}</div></div>
       <button class="btn btn-sm" onclick="applyTemplate('${t.id}','new')">New proposal</button>
       <button class="btn btn-sm" onclick="applyTemplate('${t.id}','insert')">Insert here</button>
       <button class="disc-x" title="Delete for everyone" onclick="deleteTemplate('${t.id}')">&times;</button>
@@ -1435,10 +1451,11 @@ async function saveTemplateFromCurrent(){
   const o=curOpt();
   if(!(o.lines||[]).length){ toast('Current option has no items'); return; }
   if(templates.length>=MAX_TPL){ toast('Template limit ('+MAX_TPL+') reached \u2014 delete one first'); return; }
-  const t={ id:'t'+rid(12), name, data:JSON.parse(JSON.stringify({lines:o.lines,discounts:migrateDiscounts(o),saveOverride:o.saveOverride||0})) };
+  const cat=val('tplCat').trim();
+  const t={ id:'t'+rid(12), name, cat, data:JSON.parse(JSON.stringify({lines:o.lines,discounts:migrateDiscounts(o),saveOverride:o.saveOverride||0})) };
   templates.push(t); lput(K_TPL,templates);
-  if(online){ try{ await sb.from('templates').insert([{id:t.id,name:t.name,data:t.data}]); }catch(e){} }
-  setv('tplName',''); renderTplList(); toast('Template saved for the team');
+  if(online){ try{ await sb.from('templates').insert([{id:t.id,name:t.name,cat:t.cat,data:t.data}]); }catch(e){} }
+  setv('tplName',''); setv('tplCat',''); renderTplList(); toast('Template saved for the team');
 }
 async function deleteTemplate(id){
   const t=templates.find(x=>x.id===id); if(!t) return;
