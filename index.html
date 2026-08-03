@@ -1424,7 +1424,7 @@ function lineDrop(e,i){ if(_dragEl) e.preventDefault(); }
 let _dragScrollRAF=null,_dragY=null;
 function _dragAutoScroll(){
   if(_dragEl===null||_dragY===null){ _dragScrollRAF=null; return; }
-  const EDGE=70, MAX=22;
+  const EDGE=70, MAX=12;
   // scroll the panel that contains the quote list
   const sc=document.getElementById('quoteLines') && document.getElementById('quoteLines').closest('.panel-body');
   if(sc){
@@ -2473,7 +2473,7 @@ function fullDocHtml(project, o2){
 
   // "Choose your system" comparison table — one row per distinct item, quantities where they differ
   let cmpHtml='';
-  if(project.showCompare!==false && opts.length>1){
+  if(project.showCompare!==false && opts.length>=1){
     // Build the display-name map per option (merges same-city permits)
     const dispName=(l,o)=>permitDisplayName(l,o.lines||[]);
     const seen=[], order=[];
@@ -2514,9 +2514,9 @@ function fullDocHtml(project, o2){
     const genCount=opts.filter(o=>kwNumA(o)!==null).length;
     const userHasWholeHome=(project.featureRows||[]).some(f=>/whole[-\s]?home/i.test(f.label||''));
     let autoWholeHome='';
-    if(genCount>=2 && !userHasWholeHome){
+    if(genCount>=1 && !userHasWholeHome){
       const cells=opts.map(o=>{ const rec=o.recommended?' reccol':''; const k=kwNumA(o);
-        const v = k===null ? '<span class=\'no\'>&mdash;</span>' : (k>=maxKwA?'More headroom':'Standard');
+        const v = k===null ? '<span class=\'no\'>&mdash;</span>' : (opts.length===1 ? 'Standard' : (k>=maxKwA?'More headroom':'Standard'));
         return `<td class="${rec.trim()}">${v}</td>`; }).join('');
       autoWholeHome=`<tr><td class="rowlbl">Whole-home power</td>${cells}</tr>`;
     }
