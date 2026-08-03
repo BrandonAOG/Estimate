@@ -510,7 +510,7 @@
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
       <button class="btn btn-sm" onclick="window.print()">Print proposal</button>
       <button class="btn-amber btn-sm" onclick="shareForApproval()">&#128279; Share for approval</button>
-      <button class="btn-amber btn-sm" onclick="saveProposalNamed()">&#128190; Save proposal</button>
+      <button class="btn-amber btn-sm" onclick="saveProposalNamed()" style="display:none">&#128190; Save proposal</button>
       <button class="btn-amber btn-sm" onclick="openItemModal()">+ Add item</button>
     </div>
   </div>
@@ -662,7 +662,7 @@
 <div id="mobileBar">
   <div class="mb-total"><span>Total</span><b id="mbTotal">$0.00</b></div>
   <button class="mb-btn" onclick="openItemModal()">+ Item</button>
-  <button class="mb-btn" onclick="saveProposalNamed()">Save</button>
+  <button class="mb-btn" onclick="saveProposalNamed()" style="display:none">Save</button>
   <button class="mb-btn mb-amber" onclick="shareForApproval()">Share</button>
   <button class="mb-btn" onclick="window.print()">Print</button>
 </div>
