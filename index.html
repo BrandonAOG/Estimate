@@ -129,6 +129,8 @@
   .line-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
   .line-controls-r{display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .line-controls .p{margin:0}
+  .line-model{display:inline-flex;align-items:center;gap:4px;margin-left:10px;font-size:11px;color:var(--ink-soft)}
+  .line-model input{width:110px;padding:2px 4px;border:1px solid var(--line);border-radius:5px;font-size:11px}
   .line-disc{display:inline-flex;align-items:center;gap:3px;margin-left:10px;font-size:11px;color:var(--ink-soft)}
   .line-disc select{padding:2px;border:1px solid var(--line);border-radius:5px;font-size:11px;background:#fff}
   .line-disc input{width:58px;padding:2px 4px;border:1px solid var(--line);border-radius:5px;font-size:11px}
@@ -1433,6 +1435,7 @@ function lineDragEnd(e){
   _dragEl=null;
   renderQuote();
 }
+function setLineModel(i,v){ const l=curOpt().lines[i]; if(!l)return; l.model=v.trim(); saveProject(); renderQuote(); }
 function setLineDisc(i,key,v){ const l=curOpt().lines[i]; if(!l)return; l[key]= key==='discVal'?(parseFloat(v)||0):v; saveProject(); renderQuote(); }
 function setQty(i,v){curOpt().lines[i].qty=Math.max(1,parseInt(v)||1);saveProject();renderQuote();}
 function bump(i,d){setQty(i,(curOpt().lines[i].qty||1)+d);}
@@ -1448,7 +1451,17 @@ function setPrice(i,v){
 function setName(i,v){
   const name=(v||'').trim();
   const l=curOpt().lines[i];
+  const oldName=l.name||'';
   l.name = name || l.name; // don't allow fully blank
+  // Smart model refresh: if the generator SIZE in the name changed, the old model is stale.
+  // Look up the matching generator in the catalog and adopt its model; otherwise clear it.
+  const kwOfStr=s=>{ const m=(s||'').match(/(\d+(?:\.\d+)?)\s*kw/i); return m?m[1]:null; };
+  const oldKw=kwOfStr(oldName), newKw=kwOfStr(l.name);
+  if(newKw && oldKw!==newKw && (l.model||'').trim()){
+    const match=catalog.find(c=>kwOfStr(c.name)===newKw && /generator/i.test(c.name||''));
+    if(match && (match.model||'').trim()){ l.model=match.model; toast('Model updated to '+match.model); }
+    else { l.model=''; toast('Model cleared \u2014 set it if needed'); }
+  }
   saveProject();
   renderQuote();
 }
@@ -2192,7 +2205,7 @@ function renderQuote(){
       </div>
       <div class="line-controls">
         <div class="p">$<input class="price-edit${overridden?' changed':''}" value="${(Number(l.price)||0).toFixed(2)}" onchange="setPrice(${i},this.value)" title="Price for this estimate only"> each${overridden||nameEdited||descEdited?' <span class="ovr">(custom)</span>':''}
-          <span class="line-disc" title="Discount this item"><select onchange="setLineDisc(${i},'discType',this.value)"><option value="flat"${l.discType!=='pct'?' selected':''}>$</option><option value="pct"${l.discType==='pct'?' selected':''}>%</option></select><input type="number" min="0" step="0.01" value="${l.discVal||0}" onchange="setLineDisc(${i},'discVal',this.value)"> off${(parseFloat(l.discVal)||0)>0?`<input class="line-disc-name" placeholder="Discount name" value="${esc(l.discLabel||'')}" onchange="setLineDisc(${i},'discLabel',this.value)">`:''}</span></div>
+          <span class="line-model" title="Model shown on the comparison table">Model <input value="${esc(l.model||'')}" placeholder="&mdash;" onchange="setLineModel(${i},this.value)"></span><span class="line-disc" title="Discount this item"><select onchange="setLineDisc(${i},'discType',this.value)"><option value="flat"${l.discType!=='pct'?' selected':''}>$</option><option value="pct"${l.discType==='pct'?' selected':''}>%</option></select><input type="number" min="0" step="0.01" value="${l.discVal||0}" onchange="setLineDisc(${i},'discVal',this.value)"> off${(parseFloat(l.discVal)||0)>0?`<input class="line-disc-name" placeholder="Discount name" value="${esc(l.discLabel||'')}" onchange="setLineDisc(${i},'discLabel',this.value)">`:''}</span></div>
         <div class="line-controls-r">
           <div class="qty"><button onclick="bump(${i},-1)">&minus;</button><input value="${l.qty}" onchange="setQty(${i},this.value)"><button onclick="bump(${i},1)">+</button></div>
           <div class="line-total">${(lineNet(l).amt>0?`<span style="text-decoration:line-through;color:#999;font-weight:400;font-size:11px">${money(lineNet(l).gross)}</span><br>`:'')}${money(lineNet(l).net)}</div>
