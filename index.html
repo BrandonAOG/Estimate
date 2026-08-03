@@ -96,6 +96,8 @@
   .opt-namebar input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.15)}
   .opt-rec-btn{font-size:12px;font-weight:700;padding:7px 11px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
   .opt-rec-btn.on{background:var(--amber);color:var(--ink);border-color:var(--amber)}
+  .opt-tpl-btn{padding:8px 12px;border:1px solid var(--amber);border-radius:8px;background:#fff7e0;color:#8a6d00;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
+  .opt-tpl-btn:hover{background:#ffefc2}
   .opt-del-btn{font-size:15px;padding:6px 9px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);cursor:pointer}
   .opt-del-btn:hover{color:var(--red);border-color:#f0d6d2}
   .item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;transition:.1s}
@@ -1379,6 +1381,7 @@ function renderOptTabs(){
     <input id="optName" value="${esc(o.name||'')}" placeholder="Name this option (e.g. 26KW Whole-Home)" oninput="renameOpt(this.value)">
     <button class="opt-rec-btn ${o.recommended?'on':''}" onclick="toggleRec()" title="Mark as recommended">&#9733; ${o.recommended?'Recommended':'Recommend'}</button>
     <button class="opt-rec-btn" onclick="duplicateOption()" ${project.options.length>=MAX_OPTIONS?'disabled':''} title="Copy this option's lines into a new option">&#10697; Duplicate</button>
+    <button class="opt-tpl-btn" onclick="openTemplatesToSave()" title="Save this option as a team template">&#9889; Save as template</button>
     ${project.options.length>1?`<button class="opt-del-btn" onclick="delOption()" title="Delete this option">&#128465;</button>`:''}`;
 }
 function switchOpt(i){ activeOpt=i; renderOptTabs(); fillDisc(); renderQuote(); }
@@ -1423,6 +1426,19 @@ async function loadTemplates(){
     if(data){ templates=data.map(r=>({id:r.id,name:r.name,cat:r.cat||'',data:r.data})); lput(K_TPL,templates); } }catch(e){}
 }
 function openTemplates(){ document.getElementById('tplModal').classList.add('on'); loadTemplates().then(renderTplList); renderTplList(); }
+function openTemplatesToSave(){
+  openTemplates();
+  const inp=document.getElementById('tplName');
+  if(inp){
+    if(!inp.value.trim()){
+      // suggest a name from the option's generator, e.g. "26KW Package"
+      const o=curOpt(); let sug='';
+      for(const l of (o.lines||[])){ const m=(l.name||'').match(/(\d+(?:\.\d+)?)\s*kw/i); if(m){ sug=m[1]+'KW Package'; break; } }
+      inp.value=sug;
+    }
+    setTimeout(()=>{ inp.focus(); inp.select(); },50);
+  }
+}
 function closeTemplates(){ document.getElementById('tplModal').classList.remove('on'); }
 function tplSummary(t){ const n=(t.data.lines||[]).length; const tot=(t.data.lines||[]).reduce((s,l)=>s+lineNet(l).net,0); return n+' item'+(n===1?'':'s')+' \u00b7 '+money(tot); }
 function renderTplList(){
