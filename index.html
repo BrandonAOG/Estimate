@@ -649,6 +649,19 @@
     </div>
   </div>
 </div>
+<div class="overlay" id="tplModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">&#9889; Quick templates</div>
+    <div class="modal-body" style="max-height:60vh;overflow:auto">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="tplName" placeholder="Name this template (e.g. 26KW Air-Cooled Package)" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit">
+        <button class="btn-amber btn-sm" onclick="saveTemplateFromCurrent()">Save current option</button>
+      </div>
+      <div id="tplList" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="modal-foot"><button class="btn-ghost" onclick="closeTemplates()">Close</button></div>
+  </div>
+</div>
 <div class="overlay" id="savedModal">
   <div class="modal wide">
     <div class="modal-head">Saved proposals</div>
@@ -1352,7 +1365,7 @@ function renderCatalog(){
 function renderOptTabs(){
   const tabs=project.options.map((o,i)=>
     `<button class="opt-tab ${i===activeOpt?'active':''} ${o.recommended?'rec':''}" onclick="switchOpt(${i})">${esc(o.name||OPT_NAMES[i])}</button>`).join('');
-  const addBtn=`<button class="opt-add" onclick="addOption()" ${project.options.length>=MAX_OPTIONS?'disabled':''} title="Add another estimate">+ Add option</button>`;
+  const addBtn=`<button class="opt-add" onclick="addOption()" ${project.options.length>=MAX_OPTIONS?'disabled':''} title="Add another estimate">+ Add option</button><button class="opt-add" onclick="openTemplates()" title="Quick templates">&#9889; Templates</button>`;
   document.getElementById('optTabs').innerHTML=tabs+addBtn;
   const o=curOpt();
   document.getElementById('optNamebar').innerHTML=`
@@ -1394,6 +1407,68 @@ function toggleRec(){
   project.options.forEach(x=>x.recommended=false); // only one recommended
   o.recommended=willRec;
   saveProject(); renderOptTabs();
+}
+const K_TPL='aog_templates_v1'; const MAX_TPL=20;
+let templates=load(K_TPL,[])||[];
+async function loadTemplates(){
+  if(!online) return;
+  try{ const {data}=await sb.from('templates').select('*').order('name');
+    if(data){ templates=data.map(r=>({id:r.id,name:r.name,data:r.data})); lput(K_TPL,templates); } }catch(e){}
+}
+function openTemplates(){ document.getElementById('tplModal').classList.add('on'); loadTemplates().then(renderTplList); renderTplList(); }
+function closeTemplates(){ document.getElementById('tplModal').classList.remove('on'); }
+function tplSummary(t){ const n=(t.data.lines||[]).length; const tot=(t.data.lines||[]).reduce((s,l)=>s+lineNet(l).net,0); return n+' item'+(n===1?'':'s')+' \u00b7 '+money(tot); }
+function renderTplList(){
+  const el=document.getElementById('tplList'); if(!el) return;
+  if(!templates.length){ el.innerHTML='<div style="color:var(--ink-soft);font-size:13px;padding:8px 0">No templates yet. Build an option, then save it here \u2014 the whole team gets it.</div>'; return; }
+  el.innerHTML=templates.map(t=>`
+    <div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px"><b>${esc(t.name)}</b><div style="font-size:12px;color:var(--ink-soft)">${tplSummary(t)}</div></div>
+      <button class="btn btn-sm" onclick="applyTemplate('${t.id}','new')">New proposal</button>
+      <button class="btn btn-sm" onclick="applyTemplate('${t.id}','insert')">Insert here</button>
+      <button class="disc-x" title="Delete for everyone" onclick="deleteTemplate('${t.id}')">&times;</button>
+    </div>`).join('');
+}
+async function saveTemplateFromCurrent(){
+  const name=val('tplName').trim();
+  if(!name){ toast('Give the template a name'); return; }
+  const o=curOpt();
+  if(!(o.lines||[]).length){ toast('Current option has no items'); return; }
+  if(templates.length>=MAX_TPL){ toast('Template limit ('+MAX_TPL+') reached \u2014 delete one first'); return; }
+  const t={ id:'t'+rid(12), name, data:JSON.parse(JSON.stringify({lines:o.lines,discounts:migrateDiscounts(o),saveOverride:o.saveOverride||0})) };
+  templates.push(t); lput(K_TPL,templates);
+  if(online){ try{ await sb.from('templates').insert([{id:t.id,name:t.name,data:t.data}]); }catch(e){} }
+  setv('tplName',''); renderTplList(); toast('Template saved for the team');
+}
+async function deleteTemplate(id){
+  const t=templates.find(x=>x.id===id); if(!t) return;
+  if(!await appConfirm('Delete template?','Remove <b>'+esc(t.name)+'</b> for the whole team?','Delete',true)) return;
+  templates=templates.filter(x=>x.id!==id); lput(K_TPL,templates);
+  if(online){ try{ await sb.from('templates').delete().eq('id',id); }catch(e){} }
+  renderTplList(); toast('Template deleted');
+}
+async function applyTemplate(id,mode){
+  const t=templates.find(x=>x.id===id); if(!t) return;
+  const clone=()=>JSON.parse(JSON.stringify(t.data));
+  if(mode==='new'){
+    await cloudSaveNow();
+    project=newProject(); activeOpt=0;
+    const c=clone();
+    project.options[0].lines=c.lines||[];
+    project.options[0].discounts=c.discounts&&c.discounts.length?c.discounts:project.options[0].discounts;
+    project.options[0].saveOverride=c.saveOverride||0;
+    lput(K_QUOTE,project);
+    fillProjectMeta(); fillEstimator(); renderOptTabs(); fillDisc(); renderQuote();
+    toast('New proposal from \u201c'+t.name+'\u201d');
+  } else {
+    const o=curOpt(); const c=clone();
+    const empty=!(o.lines||[]).length;
+    o.lines=(o.lines||[]).concat(c.lines||[]);
+    if(empty && c.discounts && c.discounts.length){ o.discounts=c.discounts; o.saveOverride=c.saveOverride||0; }
+    saveProject(); fillDisc(); renderQuote();
+    toast('Inserted \u201c'+t.name+'\u201d into '+(o.name||'option'));
+  }
+  closeTemplates();
 }
 let replaceMode=null; // index of the quote line being replaced, or null
 function replaceLine(i,itemId){
@@ -2834,8 +2909,9 @@ backdropClose('itemModal', closeItemModal);
 backdropClose('connectModal', closeConnect);
 backdropClose('savedModal', closeSaved);
 backdropClose('shareModal', closeShare);
+backdropClose('tplModal', closeTemplates);
 backdropClose('sigModal', ()=>document.getElementById('sigModal').classList.remove('on'));
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();closeShare();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();closeShare();closeTemplates();}});
 document.querySelectorAll(".brandlogo").forEach(i=>i.src=LOGO);
 // The footer version is whatever the live SERVICE WORKER reports - the SW is the
 // single source of truth for this app's version. No hardcoded HTML version is shown.
