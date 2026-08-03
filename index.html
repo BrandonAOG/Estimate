@@ -119,7 +119,11 @@
   .field input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.15)}
   .line{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:2px solid var(--amber)}
   .line-stacked{display:block}
-  .line-stacked .line-name{width:100%}
+  .line-stacked .line-name{width:100%;position:relative;padding-left:20px}
+  .drag-handle{position:absolute;left:0;top:4px;cursor:grab;color:var(--ink-soft);font-size:13px;letter-spacing:-2px;user-select:none;padding:2px 4px 2px 0}
+  .drag-handle:active{cursor:grabbing}
+  .line-wrap.dragging{opacity:.5}
+  .line-wrap.drag-over .line{border-top:2px solid var(--amber-deep)}
   .line-stacked .name-edit{width:100%}
   .line-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
   .line-controls-r{display:flex;align-items:center;gap:8px;flex:0 0 auto}
@@ -1389,6 +1393,19 @@ function addLine(itemId){
   if(ex)ex.qty++;else o.lines.push({itemId,name:it.name,desc:it.desc,model:it.model||'',price:it.price,qty:1});
   saveProject();renderQuote();toast(it.name+' \u2192 '+(o.name||'option'));
 }
+let _dragLine=null;
+function moveLine(from,to){
+  const L=curOpt().lines;
+  if(from===to||from<0||to<0||from>=L.length||to>=L.length) return;
+  const [it]=L.splice(from,1); L.splice(to,0,it);
+  saveProject(); renderQuote();
+}
+function lineDragStart(e,i){ _dragLine=i; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',String(i));}catch(_){} const wrapEl=e.target.closest('.line-wrap'); if(wrapEl) wrapEl.classList.add('dragging'); }
+function lineDragEnd(e){ _dragLine=null; document.querySelectorAll('.line-wrap.dragging,.line-wrap.drag-over').forEach(el=>el.classList.remove('dragging','drag-over')); }
+function lineDragOver(e,i){ if(_dragLine===null) return; e.preventDefault(); e.dataTransfer.dropEffect='move';
+  document.querySelectorAll('.line-wrap.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  const el=e.currentTarget; if(el) el.classList.add('drag-over'); }
+function lineDrop(e,i){ if(_dragLine===null) return; e.preventDefault(); const from=_dragLine; _dragLine=null; moveLine(from,i); }
 function setLineDisc(i,key,v){ const l=curOpt().lines[i]; if(!l)return; l[key]= key==='discVal'?(parseFloat(v)||0):v; saveProject(); renderQuote(); }
 function setQty(i,v){curOpt().lines[i].qty=Math.max(1,parseInt(v)||1);saveProject();renderQuote();}
 function bump(i,d){setQty(i,(curOpt().lines[i].qty||1)+d);}
@@ -2134,9 +2151,10 @@ function renderQuote(){
     const nameEdited = cat && (cat.name||'')!==(l.name||'');
     const descEdited = cat && (cat.desc||'')!==(l.desc||'');
     return `
-    <div class="line-wrap"><button class="swipe-del-btn" onclick="removeLine(${i})">Delete</button>
+    <div class="line-wrap" data-li="${i}" ondragover="lineDragOver(event,${i})" ondrop="lineDrop(event,${i})"><button class="swipe-del-btn" onclick="removeLine(${i})">Delete</button>
     <div class="line line-stacked">
       <div class="line-name">
+        <span class="drag-handle" draggable="true" ondragstart="lineDragStart(event,${i})" ondragend="lineDragEnd(event)" title="Drag to reorder">&#8942;&#8942;</span>
         <input class="name-edit${nameEdited?' changed':''}" value="${esc(l.name)}" onchange="setName(${i},this.value)" title="Item name for this estimate only">
         <textarea class="desc-edit${descEdited?' changed':''}" rows="1" placeholder="Add a description (optional)" oninput="autoGrow(this)" onchange="setDesc(${i},this.value)" title="Description for this estimate only">${esc(l.desc||'')}</textarea>
       </div>
