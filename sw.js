@@ -1,6 +1,6 @@
 // Always On Quote Builder — service worker
 // Version + release notes shown to the user in the update banner.
-const SW_VERSION = '2.1.7';
+const SW_VERSION = '3.3.4';
 const SW_NOTES = 'Footer version now comes straight from this app\'s service worker.';
 const CACHE = 'aog-shell-v' + SW_VERSION;
 
