@@ -1328,7 +1328,7 @@ function renderCatalog(){
   const moreFoot = truncated ? `<div style="padding:12px;text-align:center;font-size:13px;color:var(--ink-soft)">Showing ${items.length} of ${totalMatched} &middot; <a href="#" onclick="document.getElementById('catPage').value='all';renderCatalog();return false" style="color:var(--amber-deep);font-weight:700">Show all</a></div>` : '';
   const row=it=>`
     <div class="item" draggable="true" ondragstart="catDragStart(event,'${it.id}')" ondragend="catDragEnd(event)">
-      <input type="checkbox" class="cat-sel" data-id="${esc(it.id)}" onclick="event.stopPropagation()" onchange="updateCatSelUI()" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--amber-deep)">
+      <input type="checkbox" class="cat-sel" data-id="${esc(it.id)}" ${catSel.has(it.id)?'checked':''} onclick="event.stopPropagation()" onchange="toggleCatSel('${it.id}',this.checked)" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--amber-deep)">
       <div class="item-main" onclick="addLine('${it.id}')">
         <div class="item-name">${esc(it.name)}</div>
         <div class="item-desc">${esc(it.desc||'')}</div>
@@ -1345,6 +1345,7 @@ function renderCatalog(){
     const cats=Object.keys(groups).sort();
     list.innerHTML=cats.map(c=>`<div class="cat-group-label">${esc(c)} <span style="color:var(--ink-soft);font-weight:600">(${groups[c].length})</span></div>`+groups[c].map(row).join('')).join('')+moreFoot;
   } else { list.innerHTML=items.map(row).join('')+moreFoot; }
+  updateCatSelUI();
 }
 
 /* ================= OPTIONS + QUOTE ================= */
@@ -2324,7 +2325,9 @@ function fillProjectMeta(){
 }
 
 /* ================= ITEM CRUD ================= */
-function catSelIds(){ return [...document.querySelectorAll('#catalogList .cat-sel:checked')].map(b=>b.dataset.id); }
+const catSel=new Set();
+function catSelIds(){ return [...catSel]; }
+function toggleCatSel(id,on){ if(on)catSel.add(id); else catSel.delete(id); updateCatSelUI(); }
 function updateCatSelUI(){
   const n=catSelIds().length;
   const bar=document.getElementById('catSelBar'); if(!bar) return;
@@ -2336,7 +2339,7 @@ function updateCatSelUI(){
   sel.innerHTML='<option value="">Move to category&hellip;</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.onchange=async function(){ if(this.value) await moveSelectedToCat(this.value); this.value=''; };
 }
-function clearCatSel(){ document.querySelectorAll('#catalogList .cat-sel:checked').forEach(b=>b.checked=false); updateCatSelUI(); }
+function clearCatSel(){ catSel.clear(); document.querySelectorAll('#catalogList .cat-sel:checked').forEach(b=>b.checked=false); updateCatSelUI(); }
 function addSelectedToQuote(){
   const ids=catSelIds(); if(!ids.length) return;
   ids.forEach(id=>addLine(id));
