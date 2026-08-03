@@ -2094,6 +2094,10 @@ function renderDiscRows(){
         <span class="val discAmtCell" data-i="${i}" style="width:70px;text-align:right">&ndash;$0.00</span>
         <button class="disc-x" title="Remove" onclick="removeDiscount(${i})">&times;</button>
       </span>
+    </div>
+    ${i>0?`<div style="margin:-4px 0 4px 6px;font-size:11px;color:var(--ink-soft)"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" ${d.base==='sub'?'checked':''} onchange="setDisc(${i},'base',this.checked?'sub':'')" style="accent-color:var(--amber-deep)"> Calculate from subtotal (ignore discount${i>1?'s':''} above)</label></div>`:''}
+    <span style="display:none">
+      </span>
     </div>`).join('');
 }
 function setDisc(i,key,v){ const o=curOpt(); const ds=migrateDiscounts(o); if(!ds[i])return; ds[i][key]= key==='val'?(parseFloat(v)||0):v; saveProject(); renderQuote(); }
@@ -2129,7 +2133,8 @@ function optTotals(o){
   const ds=migrateDiscounts(o);
   let bal=sub; const applied=[];
   ds.forEach(d=>{
-    let amt=d.type==='pct'?bal*((parseFloat(d.val)||0)/100):(parseFloat(d.val)||0);
+    const base = (d.base==='sub') ? sub : bal;   // "off subtotal" checkbox = compute from original subtotal
+    let amt=d.type==='pct'?base*((parseFloat(d.val)||0)/100):(parseFloat(d.val)||0);
     amt=Math.max(0,Math.min(amt,bal)); bal-=amt;
     applied.push({label:d.label,amt});
   });
