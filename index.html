@@ -124,6 +124,10 @@
   .drag-handle:active{cursor:grabbing}
   .line-wrap.dragging{opacity:.6}
   .line-wrap.dragging .line{background:rgba(244,180,0,.35)}
+  .line-swap{border:none;background:transparent;color:var(--ink-soft);font-size:15px;cursor:pointer;padding:0 2px;line-height:1}
+  .line-swap:hover{color:var(--amber-deep)}
+  .line-swap.on{color:var(--amber-deep);text-shadow:0 0 1px var(--amber-deep)}
+  .line-wrap.drag-replace .line{background:rgba(244,180,0,.35);outline:2px dashed var(--amber-deep);outline-offset:-2px}
 
   .line-stacked .name-edit{width:100%}
   .line-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
@@ -569,6 +573,7 @@
         </div>
         <div class="opt-tabs" id="optTabs"></div>
         <div class="opt-namebar" id="optNamebar"></div>
+        <div id="replaceBanner" style="display:none;align-items:center;gap:6px;padding:9px 14px;background:#fff7e0;border-top:1px solid var(--amber);border-bottom:1px solid var(--amber);font-size:13px;flex-wrap:wrap"></div>
         <div id="quoteLines"></div>
         <div class="totals">
           <div class="trow"><span class="lbl">Subtotal</span><span class="val" id="subtotal">$0.00</span></div>
@@ -1322,7 +1327,7 @@ function renderCatalog(){
   }
   const moreFoot = truncated ? `<div style="padding:12px;text-align:center;font-size:13px;color:var(--ink-soft)">Showing ${items.length} of ${totalMatched} &middot; <a href="#" onclick="document.getElementById('catPage').value='all';renderCatalog();return false" style="color:var(--amber-deep);font-weight:700">Show all</a></div>` : '';
   const row=it=>`
-    <div class="item">
+    <div class="item" draggable="true" ondragstart="catDragStart(event,'${it.id}')" ondragend="catDragEnd(event)">
       <input type="checkbox" class="cat-sel" data-id="${esc(it.id)}" onclick="event.stopPropagation()" onchange="updateCatSelUI()" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--amber-deep)">
       <div class="item-main" onclick="addLine('${it.id}')">
         <div class="item-name">${esc(it.name)}</div>
@@ -1389,7 +1394,23 @@ function toggleRec(){
   o.recommended=willRec;
   saveProject(); renderOptTabs();
 }
+let replaceMode=null; // index of the quote line being replaced, or null
+function replaceLine(i,itemId){
+  const it=catalog.find(c=>c.id===itemId); if(!it) return;
+  const l=curOpt().lines[i]; if(!l) return;
+  // Keep the line's position, quantity, and per-line discount; swap in the new item's identity
+  l.itemId=itemId; l.name=it.name; l.desc=it.desc||''; l.model=it.model||''; l.price=it.price;
+  replaceMode=null;
+  saveProject(); renderQuote(); toast('Replaced with '+it.name);
+}
+function startReplace(i){
+  replaceMode = (replaceMode===i)?null:i;   // tap again to cancel
+  renderQuote();
+}
+function cancelReplace(){ if(replaceMode!==null){ replaceMode=null; renderQuote(); } }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') cancelReplace(); });
 function addLine(itemId){
+  if(replaceMode!==null){ replaceLine(replaceMode,itemId); return; }
   const it=catalog.find(c=>c.id===itemId);if(!it)return;
   const o=curOpt();
   const ex=o.lines.find(l=>l.itemId===itemId);
@@ -1410,7 +1431,13 @@ function lineDragStart(e,i){
   // Transparent drag image: the card ITSELF moves live through the list instead of a floating ghost
   try{ const px=document.createElement('canvas'); px.width=px.height=1; e.dataTransfer.setDragImage(px,0,0); }catch(_){}
 }
+let _catDrag=null;
+function catDragStart(e,id){ _catDrag=id; e.dataTransfer.effectAllowed='copy'; try{e.dataTransfer.setData('text/plain','cat:'+id);}catch(_){} }
+function catDragEnd(e){ _catDrag=null; document.querySelectorAll('.line-wrap.drag-replace').forEach(el=>el.classList.remove('drag-replace')); }
 function lineDragOver(e,i){
+  if(_catDrag){ e.preventDefault(); e.dataTransfer.dropEffect='copy';
+    document.querySelectorAll('.line-wrap.drag-replace').forEach(el=>el.classList.remove('drag-replace'));
+    e.currentTarget.classList.add('drag-replace'); return; }
   if(!_dragEl) return; e.preventDefault(); e.dataTransfer.dropEffect='move';
   const target=e.currentTarget;
   if(!target || target===_dragEl) return;
@@ -1420,7 +1447,12 @@ function lineDragOver(e,i){
   if(before) parent.insertBefore(_dragEl, target);
   else parent.insertBefore(_dragEl, target.nextSibling);
 }
-function lineDrop(e,i){ if(_dragEl) e.preventDefault(); }
+function lineDrop(e,i){
+  if(_catDrag){ e.preventDefault(); const id=_catDrag; _catDrag=null;
+    document.querySelectorAll('.line-wrap.drag-replace').forEach(el=>el.classList.remove('drag-replace'));
+    replaceLine(i,id); return; }
+  if(_dragEl) e.preventDefault();
+}
 let _dragScrollRAF=null,_dragY=null;
 function _dragAutoScroll(){
   if(_dragEl===null||_dragY===null){ _dragScrollRAF=null; return; }
@@ -2225,6 +2257,13 @@ function renderQuote(){
   readProjectMeta(); readDisc();
   const o=curOpt();
   const wrap=document.getElementById('quoteLines');
+  const rb=document.getElementById('replaceBanner');
+  if(rb){
+    if(replaceMode!==null && curOpt().lines[replaceMode]){
+      rb.style.display='flex';
+      rb.innerHTML='&#8646; Replacing: <b style="margin:0 4px">'+esc(curOpt().lines[replaceMode].name||'')+'</b> \u2014 click a catalog item (Esc to cancel) <button class="btn btn-sm" style="margin-left:auto" onclick="cancelReplace()">Cancel</button>';
+    } else { rb.style.display='none'; rb.innerHTML=''; if(replaceMode!==null) replaceMode=null; }
+  }
   document.getElementById('lineCount').textContent=o.lines.length+' line'+(o.lines.length===1?'':'s');
   if(!o.lines.length){wrap.innerHTML='<div class="empty"><b>Nothing in this option yet</b>Tap catalog items to add them to '+esc(o.name||'this option')+'.</div>';}
   else{wrap.innerHTML=o.lines.map((l,i)=>{
@@ -2246,6 +2285,7 @@ function renderQuote(){
         <div class="line-controls-r">
           <div class="qty"><button onclick="bump(${i},-1)">&minus;</button><input value="${l.qty}" onchange="setQty(${i},this.value)"><button onclick="bump(${i},1)">+</button></div>
           <div class="line-total">${(lineNet(l).amt>0?`<span style="text-decoration:line-through;color:#999;font-weight:400;font-size:11px">${money(lineNet(l).gross)}</span><br>`:'')}${money(lineNet(l).net)}</div>
+          <button class="line-swap${replaceMode===i?' on':''}" title="Replace with a catalog item" onclick="startReplace(${i})">&#8646;</button>
           <button class="line-x" title="Remove" onclick="removeLine(${i})">&times;</button>
         </div>
       </div>
