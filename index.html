@@ -1421,7 +1421,29 @@ function lineDragOver(e,i){
   else parent.insertBefore(_dragEl, target.nextSibling);
 }
 function lineDrop(e,i){ if(_dragEl) e.preventDefault(); }
+let _dragScrollRAF=null,_dragY=null;
+function _dragAutoScroll(){
+  if(_dragEl===null||_dragY===null){ _dragScrollRAF=null; return; }
+  const EDGE=70, MAX=22;
+  // scroll the panel that contains the quote list
+  const sc=document.getElementById('quoteLines') && document.getElementById('quoteLines').closest('.panel-body');
+  if(sc){
+    const r=sc.getBoundingClientRect();
+    if(_dragY < r.top+EDGE)      sc.scrollTop -= Math.ceil((r.top+EDGE-_dragY)/EDGE*MAX);
+    else if(_dragY > r.bottom-EDGE) sc.scrollTop += Math.ceil((_dragY-(r.bottom-EDGE))/EDGE*MAX);
+  }
+  // scroll the page too when near the viewport edges
+  if(_dragY < EDGE)                       window.scrollBy(0,-Math.ceil((EDGE-_dragY)/EDGE*MAX));
+  else if(_dragY > window.innerHeight-EDGE) window.scrollBy(0, Math.ceil((_dragY-(window.innerHeight-EDGE))/EDGE*MAX));
+  _dragScrollRAF=requestAnimationFrame(_dragAutoScroll);
+}
+document.addEventListener('dragover',function(e){
+  if(!_dragEl) return;
+  _dragY=e.clientY;
+  if(!_dragScrollRAF) _dragScrollRAF=requestAnimationFrame(_dragAutoScroll);
+});
 function lineDragEnd(e){
+  _dragY=null; if(_dragScrollRAF){ cancelAnimationFrame(_dragScrollRAF); _dragScrollRAF=null; }
   if(!_dragEl) return;
   _dragEl.classList.remove('dragging');
   // Commit: read the new DOM order and rebuild the lines array to match
