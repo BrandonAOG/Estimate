@@ -124,6 +124,10 @@
   .line-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
   .line-controls-r{display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .line-controls .p{margin:0}
+  .line-disc{display:inline-flex;align-items:center;gap:3px;margin-left:10px;font-size:11px;color:var(--ink-soft)}
+  .line-disc select{padding:2px;border:1px solid var(--line);border-radius:5px;font-size:11px;background:#fff}
+  .line-disc input{width:58px;padding:2px 4px;border:1px solid var(--line);border-radius:5px;font-size:11px}
+  .line-disc .line-disc-name{width:130px;margin-left:4px;color:#3b7d23;font-weight:600}
   .line-name{flex:1 1 auto;min-width:0}
   .line-name .n{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .line-name .p{font-size:11px;color:var(--ink-soft)}
@@ -1385,6 +1389,7 @@ function addLine(itemId){
   if(ex)ex.qty++;else o.lines.push({itemId,name:it.name,desc:it.desc,model:it.model||'',price:it.price,qty:1});
   saveProject();renderQuote();toast(it.name+' \u2192 '+(o.name||'option'));
 }
+function setLineDisc(i,key,v){ const l=curOpt().lines[i]; if(!l)return; l[key]= key==='discVal'?(parseFloat(v)||0):v; saveProject(); renderQuote(); }
 function setQty(i,v){curOpt().lines[i].qty=Math.max(1,parseInt(v)||1);saveProject();renderQuote();}
 function bump(i,d){setQty(i,(curOpt().lines[i].qty||1)+d);}
 function setPrice(i,v){
@@ -1617,6 +1622,13 @@ async function initApprovalView(pid){
     host.innerHTML='<div class="av-msg">We couldn\u2019t find this proposal. It may have been updated \u2014 please contact Always On Generators at (239) 839-3553.</div>';
   }
 }
+function lineNet(l){
+  const gross=(Number(l.price)||0)*(Number(l.qty)||1);
+  const v=parseFloat(l.discVal)||0;
+  let amt=l.discType==='pct'?gross*(v/100):v;
+  amt=Math.max(0,Math.min(amt,gross));
+  return {gross,amt,net:gross-amt};
+}
 function optTotalsPlain(o){
   const sub=(o.lines||[]).reduce((s,l)=>s+l.price*l.qty,0);
   let disc=o.discType==='pct'?sub*((o.discVal||0)/100):(o.discVal||0); disc=Math.min(disc,sub);
@@ -1694,7 +1706,7 @@ function avEstimateBlock(p, idx){
 function avDocHtml(p, idx){
   const o=p.options[idx]||p.options[0];
   const t=optTotalsPlain(o);
-  const rows=(o.lines||[]).map(l=>`<tr><td class="qty">${l.qty}</td><td><div class="nm">${esc(l.name)}</div>${l.desc?`<div class="ds">${esc(l.desc)}</div>`:''}</td><td class="pr">${money(l.price*l.qty)}</td></tr>`).join('');
+  const rows=(o.lines||[]).map(l=>`<tr><td class="qty">${l.qty}</td><td><div class="nm">${esc(l.name)}</div>${l.desc?`<div class="ds">${esc(l.desc)}</div>`:''}</td><td class="pr">${money(lineNet(l).net)}</td></tr>`).join('');
   const discRow=t.disc>0?`<div class="r d"><span>Discount</span><span>&ndash;${money(t.disc)}</span></div>`:'';
   return `
     <div class="p-head">
@@ -2096,7 +2108,7 @@ function renderFeatureRows(){
   }).join('') : '<div style="font-size:12px;color:#999;padding:4px 0">No custom rows. The table auto-fills what it can from line items; add rows here for features like &ldquo;Whole-home power&rdquo;.</div>';
 }
 function optTotals(o){
-  const sub=o.lines.reduce((s,l)=>s+l.price*l.qty,0);
+  const sub=o.lines.reduce((s,l)=>s+lineNet(l).net,0);
   const ds=migrateDiscounts(o);
   let bal=sub; const applied=[];
   ds.forEach(d=>{
@@ -2129,10 +2141,11 @@ function renderQuote(){
         <textarea class="desc-edit${descEdited?' changed':''}" rows="1" placeholder="Add a description (optional)" oninput="autoGrow(this)" onchange="setDesc(${i},this.value)" title="Description for this estimate only">${esc(l.desc||'')}</textarea>
       </div>
       <div class="line-controls">
-        <div class="p">$<input class="price-edit${overridden?' changed':''}" value="${(Number(l.price)||0).toFixed(2)}" onchange="setPrice(${i},this.value)" title="Price for this estimate only"> each${overridden||nameEdited||descEdited?' <span class="ovr">(custom)</span>':''}</div>
+        <div class="p">$<input class="price-edit${overridden?' changed':''}" value="${(Number(l.price)||0).toFixed(2)}" onchange="setPrice(${i},this.value)" title="Price for this estimate only"> each${overridden||nameEdited||descEdited?' <span class="ovr">(custom)</span>':''}
+          <span class="line-disc" title="Discount this item"><select onchange="setLineDisc(${i},'discType',this.value)"><option value="flat"${l.discType!=='pct'?' selected':''}>$</option><option value="pct"${l.discType==='pct'?' selected':''}>%</option></select><input type="number" min="0" step="0.01" value="${l.discVal||0}" onchange="setLineDisc(${i},'discVal',this.value)"> off${(parseFloat(l.discVal)||0)>0?`<input class="line-disc-name" placeholder="Discount name" value="${esc(l.discLabel||'')}" onchange="setLineDisc(${i},'discLabel',this.value)">`:''}</span></div>
         <div class="line-controls-r">
           <div class="qty"><button onclick="bump(${i},-1)">&minus;</button><input value="${l.qty}" onchange="setQty(${i},this.value)"><button onclick="bump(${i},1)">+</button></div>
-          <div class="line-total">${money(l.price*l.qty)}</div>
+          <div class="line-total">${(lineNet(l).amt>0?`<span style="text-decoration:line-through;color:#999;font-weight:400;font-size:11px">${money(lineNet(l).gross)}</span><br>`:'')}${money(lineNet(l).net)}</div>
           <button class="line-x" title="Remove" onclick="removeLine(${i})">&times;</button>
         </div>
       </div>
@@ -2492,10 +2505,14 @@ function fullDocHtml(project, o2){
     const showScope = project.showDetail!==false;
     detailHtml=opts.map(o=>{
       const t=optTotals(o);
-      const rows=!showScope?'':o.lines.map(l=>`
+      const rows=!showScope?'':o.lines.map(l=>{
+        const n=lineNet(l);
+        const discNote=n.amt>0?`<div class="ds" style="color:#3b7d23">${esc(l.discLabel||'Discount')} ${l.discType==='pct'?('&minus;'+(parseFloat(l.discVal)||0)+'% '):''}(&minus;${money(n.amt)})</div>`:'';
+        const priceCell=n.amt>0?`<span style="text-decoration:line-through;color:#999;font-size:9pt">${money(n.gross)}</span><br>${money(n.net)}`:money(n.gross);
+        return `
         <tr><td class="qty">${l.qty}</td>
-        <td><div class="nm">${esc(l.name)}</div>${l.desc?`<div class="ds">${esc(l.desc)}</div>`:''}</td>
-        <td class="pr">${money(l.price*l.qty)}</td></tr>`).join('');
+        <td><div class="nm">${esc(l.name)}</div>${l.desc?`<div class="ds">${esc(l.desc)}</div>`:''}${discNote}</td>
+        <td class="pr">${priceCell}</td></tr>`;}).join('');
       const kw=kwOf(o);
       // Rich total label: quantity + brand + KW + tank size, all pulled from the line items
       const genL=(o.lines||[]).find(l=>/(\d+(?:\.\d+)?)\s*kw/i.test(l.name||''));
