@@ -1419,6 +1419,16 @@ function toggleRec(){
   saveProject(); renderOptTabs();
 }
 const K_TPL='aog_templates_v1'; const MAX_TPL=25;
+let _tplEdit=null;
+async function saveTplEdit(id){
+  const t=templates.find(x=>x.id===id); if(!t) return;
+  const name=val('tplEditName').trim(); if(!name){ toast('Name can\u2019t be empty'); return; }
+  const cat=val('tplEditCat').trim();
+  t.name=name; t.cat=cat; _tplEdit=null;
+  lput(K_TPL,templates);
+  if(online){ try{ await sb.from('templates').update({name,cat}).eq('id',id); }catch(e){} }
+  renderTplList(); toast('Template updated for the team');
+}
 let templates=load(K_TPL,[])||[];
 async function loadTemplates(){
   if(!online) return;
@@ -1439,7 +1449,7 @@ function openTemplatesToSave(){
     setTimeout(()=>{ inp.focus(); inp.select(); },50);
   }
 }
-function closeTemplates(){ document.getElementById('tplModal').classList.remove('on'); }
+function closeTemplates(){ _tplEdit=null; document.getElementById('tplModal').classList.remove('on'); }
 function tplSummary(t){ const n=(t.data.lines||[]).length; const tot=(t.data.lines||[]).reduce((s,l)=>s+lineNet(l).net,0); return n+' item'+(n===1?'':'s')+' \u00b7 '+money(tot); }
 function renderTplList(){
   const el=document.getElementById('tplList'); if(!el) return;
@@ -1453,13 +1463,23 @@ function renderTplList(){
   const cf=(sel&&sel.value)||'';
   let list=templates.filter(t=>(!q||((t.name||'')+' '+(t.cat||'')).toLowerCase().includes(q)) && (!cf||(t.cat||'')===cf));
   if(!list.length){ el.innerHTML='<div style="color:var(--ink-soft);font-size:13px;padding:8px 0">No templates match.</div>'; return; }
-  el.innerHTML=list.map(t=>`
+  el.innerHTML=list.map(t=>{
+    if(_tplEdit===t.id){
+      return `<div style="border:1px solid var(--amber);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff7e0">
+        <input id="tplEditName" value="${esc(t.name)}" placeholder="Template name" style="flex:2;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit">
+        <input id="tplEditCat" list="tplCats" value="${esc(t.cat||'')}" placeholder="Category" style="flex:1;min-width:100px;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit">
+        <button class="btn-amber btn-sm" onclick="saveTplEdit('${t.id}')">Save</button>
+        <button class="btn btn-sm" onclick="_tplEdit=null;renderTplList()">Cancel</button>
+      </div>`;
+    }
+    return `
     <div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:140px"><b>${esc(t.name)}</b>${t.cat?` <span style="font-size:11px;background:#f2ede2;border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin-left:4px">${esc(t.cat)}</span>`:''}<div style="font-size:12px;color:var(--ink-soft)">${tplSummary(t)}</div></div>
       <button class="btn btn-sm" onclick="applyTemplate('${t.id}','new')">New proposal</button>
       <button class="btn btn-sm" onclick="applyTemplate('${t.id}','insert')">Insert here</button>
+      <button class="icon-btn" title="Rename / set category" onclick="_tplEdit='${t.id}';renderTplList()">&#9998;</button>
       <button class="disc-x" title="Delete for everyone" onclick="deleteTemplate('${t.id}')">&times;</button>
-    </div>`).join('');
+    </div>`;}).join('');
 }
 async function saveTemplateFromCurrent(){
   const name=val('tplName').trim();
