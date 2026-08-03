@@ -2810,11 +2810,19 @@ window.addEventListener('afterprint',()=>{ document.title=APP_TITLE; });
 
 /* ================= GLUE ================= */
 let tT;function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),1600);}
-document.getElementById('itemModal').addEventListener('click',e=>{if(e.target.id==='itemModal')closeItemModal();});
-document.getElementById('connectModal').addEventListener('click',e=>{if(e.target.id==='connectModal')closeConnect();});
-document.getElementById('savedModal').addEventListener('click',e=>{if(e.target.id==='savedModal')closeSaved();});
-document.getElementById('shareModal').addEventListener('click',e=>{if(e.target.id==='shareModal')closeShare();});
-document.getElementById('sigModal').addEventListener('click',e=>{if(e.target.id==='sigModal')document.getElementById('sigModal').classList.remove('on');});
+// Close on outside click ONLY if the press STARTED on the backdrop too.
+// (Selecting text inside the popup and releasing outside must not close it.)
+function backdropClose(id, closeFn){
+  const el=document.getElementById(id); if(!el) return;
+  let downOnBackdrop=false;
+  el.addEventListener('mousedown',e=>{ downOnBackdrop=(e.target.id===id); });
+  el.addEventListener('mouseup',e=>{ if(downOnBackdrop && e.target.id===id) closeFn(); downOnBackdrop=false; });
+}
+backdropClose('itemModal', closeItemModal);
+backdropClose('connectModal', closeConnect);
+backdropClose('savedModal', closeSaved);
+backdropClose('shareModal', closeShare);
+backdropClose('sigModal', ()=>document.getElementById('sigModal').classList.remove('on'));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();closeShare();}});
 document.querySelectorAll(".brandlogo").forEach(i=>i.src=LOGO);
 // The footer version is whatever the live SERVICE WORKER reports - the SW is the
