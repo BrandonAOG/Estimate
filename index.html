@@ -1961,7 +1961,7 @@ async function newProposalPrompt(){
   if(!await appConfirm('Start a new proposal?','Your current one is already saved and can be reopened anytime from Saved proposals.','Start new')) return;
   cloudSaveNow(); // make sure current is stored before leaving it
   project = newProject(); activeOpt=0; lput(K_QUOTE,project);
-  fillProjectMeta(); renderOptTabs(); renderQuote(); toast('New proposal started');
+  fillProjectMeta(); fillEstimator(); renderOptTabs(); renderQuote(); toast('New proposal started');
 }
 async function saveProposalNamed(){
   const name=await appDialog({title:'Save proposal',msg:'',label:'Customer name',input:project.customer||'',okText:'Save'});
@@ -2157,7 +2157,7 @@ async function deleteSelected(){
   savedCache=savedCache.filter(x=>!ids.includes(x.id));
   if(project && ids.includes(project.id)){
     project=newProject(); activeOpt=0; lput(K_QUOTE,project);
-    fillProjectMeta(); renderOptTabs(); fillDisc(); renderQuote();
+    fillProjectMeta(); fillEstimator(); renderOptTabs(); fillDisc(); renderQuote();
   }
   const sa=document.getElementById('selAll'); if(sa) sa.checked=false;
   renderSavedList(); toast(ids.length+' deleted');
@@ -2174,7 +2174,7 @@ async function deleteProposal(pid){
   // so it can't linger on screen and get re-saved (popping back into the list).
   if(project && project.id===pid){
     project=newProject(); activeOpt=0; lput(K_QUOTE,project);
-    fillProjectMeta(); renderOptTabs(); fillDisc(); renderQuote();
+    fillProjectMeta(); fillEstimator(); renderOptTabs(); fillDisc(); renderQuote();
   }
   renderSavedList(); toast('Proposal deleted');
 }
