@@ -68,7 +68,7 @@
   .panel-head{padding:16px 18px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;gap:10px}
   .panel-head h2{margin:0;font-size:15px;font-weight:700;letter-spacing:.2px}
   .panel-head .count{margin-left:auto;font-size:12px;color:var(--ink-soft);background:var(--bg);padding:3px 9px;border-radius:20px;font-weight:600}
-  .panel-body{padding:6px 8px;max-height:70vh;overflow:auto}
+  .panel-body{padding:6px 8px;max-height:calc(100vh - 230px);overflow:auto;overscroll-behavior:contain;padding-bottom:14px}
   .cat-search{padding:12px 12px 6px}
   .cat-search input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit}
   .cat-search input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.15)}
@@ -408,7 +408,7 @@
     .head-actions button{flex:0 0 auto;white-space:nowrap}
     .grid{grid-template-columns:1fr;gap:14px;margin-top:14px}
     .panel-body{max-height:none}
-    .catalog-col .panel-body{max-height:46vh}
+    .catalog-col .panel-body{max-height:calc(100vh - 260px)}
     .panel-head{padding:13px 14px}
     .cat-tabs{padding:4px 10px 10px}
     .cat-tab{font-size:12px;padding:6px 11px}
@@ -522,6 +522,11 @@
         <div class="panel-head"><h2>Catalog</h2><span class="count" id="catCount">0 items</span></div>
         <div class="cat-search" style="display:flex;gap:8px">
           <input id="search" placeholder="Search all items&hellip;" oninput="renderCatalog()" style="flex:1;min-width:0">
+          <select id="catPage" onchange="renderCatalog()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);flex:0 0 auto">
+            <option value="25">25</option><option value="50" selected>50</option><option value="75">75</option>
+            <option value="100">100</option><option value="150">150</option><option value="200">200</option>
+            <option value="250">250</option><option value="300">300</option><option value="all">All</option>
+          </select>
           <select id="catSort" onchange="renderCatalog()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);flex:0 0 auto">
             <option value="default">Default order</option>
             <option value="name">Name A&ndash;Z</option>
@@ -1297,6 +1302,14 @@ function renderCatalog(){
   }
   document.getElementById('catCount').textContent=catalog.length+' item'+(catalog.length===1?'':'s');
   if(!items.length){list.innerHTML='<div class="empty"><b>No items found</b>Try another category or search, or add one up top.</div>';return;}
+  const pageVal=val('catPage')||'50';
+  const totalMatched=items.length;
+  let truncated=false;
+  if(pageVal!=='all'){
+    const n=parseInt(pageVal)||50;
+    if(items.length>n){ items=items.slice(0,n); truncated=true; }
+  }
+  const moreFoot = truncated ? `<div style="padding:12px;text-align:center;font-size:13px;color:var(--ink-soft)">Showing ${items.length} of ${totalMatched} &middot; <a href="#" onclick="document.getElementById('catPage').value='all';renderCatalog();return false" style="color:var(--amber-deep);font-weight:700">Show all</a></div>` : '';
   const row=it=>`
     <div class="item">
       <input type="checkbox" class="cat-sel" data-id="${esc(it.id)}" onclick="event.stopPropagation()" onchange="updateCatSelUI()" style="width:17px;height:17px;flex:0 0 auto;accent-color:var(--amber-deep)">
@@ -1314,10 +1327,8 @@ function renderCatalog(){
   if(activeCat==='All' && !q){
     const groups={};items.forEach(it=>{const c=it.cat||'Uncategorized';(groups[c]=groups[c]||[]).push(it);});
     const cats=Object.keys(groups).sort();
-    list.innerHTML=cats.map(c=>`<div class="cat-group-label">${esc(c)} <span style="color:var(--ink-soft);font-weight:600">(${groups[c].length})</span></div>`+groups[c].map(row).join('')).join('');
-  } else {
-    list.innerHTML=items.map(row).join('');
-  }
+    list.innerHTML=cats.map(c=>`<div class="cat-group-label">${esc(c)} <span style="color:var(--ink-soft);font-weight:600">(${groups[c].length})</span></div>`+groups[c].map(row).join('')).join('')+moreFoot;
+  } else { list.innerHTML=items.map(row).join('')+moreFoot; }
 }
 
 /* ================= OPTIONS + QUOTE ================= */
