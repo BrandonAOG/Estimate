@@ -1675,23 +1675,24 @@ function scheduleCloudSave(){
 }
 async function cloudSaveNow(){
   if(!online) return;
-  if(projectIsBlank(project)) return; // blank proposals never get saved to the team cloud
+  const p=project;               // pin: if the user switches proposals mid-save, we keep saving THIS one
+  if(projectIsBlank(p)) return;  // blank proposals never get saved to the team cloud
   try{
     // Customer-owned fields live in the database and must survive staff saves:
     // views (link opens), approval (signature!), decline. Pull them in before upserting
     // so a stale local copy can never erase what the customer did.
     try{
-      const {data:ex}=await sb.from('proposals').select('data').eq('id',project.id).maybeSingle();
+      const {data:ex}=await sb.from('proposals').select('data').eq('id',p.id).maybeSingle();
       if(ex&&ex.data){
-        ['views','approval','decline'].forEach(k=>{ if(ex.data[k]) project[k]=ex.data[k]; });
+        ['views','approval','decline'].forEach(k=>{ if(ex.data[k]) p[k]=ex.data[k]; });
       }
     }catch(e){}
     await sb.from('proposals').upsert({
-      id: project.id,
-      customer: project.customer||'',
-      number: project.number||'',
+      id: p.id,
+      customer: p.customer||'',
+      number: p.number||'',
       updated: new Date().toISOString(),
-      data: project
+      data: p
     });
   }catch(e){ /* silent; local copy still safe */ }
 }
@@ -1967,6 +1968,7 @@ async function newProposalPrompt(){
   if(projectIsBlank(project)){ toast('This proposal is still blank \u2014 just start building'); return; }
   if(!await appConfirm('Start a new proposal?','Your current one is already saved and can be reopened anytime from Saved proposals.','Start new')) return;
   cloudSaveNow(); // make sure current is stored before leaving it
+  await cloudSaveNow(); // finish saving the old proposal BEFORE swapping
   project = newProject(); activeOpt=0; lput(K_QUOTE,project);
   fillProjectMeta(); fillEstimator(); renderOptTabs(); renderQuote(); toast('New proposal started');
 }
@@ -2130,9 +2132,9 @@ function viewSignature(pid){
   } else { dl.style.display='none'; }
   document.getElementById('sigModal').classList.add('on');
 }
-function openProposal(pid){
+async function openProposal(pid){
   const r=savedCache.find(x=>x.id===pid); if(!r){toast('Not found');return;}
-  cloudSaveNow(); // save whatever we were on
+  await cloudSaveNow(); // save whatever we were on — fully, before swapping
   project = r.data && r.data.options ? r.data : newProject();
   if(!project.id) project.id=pid;
   activeOpt=0; lput(K_QUOTE,project);
