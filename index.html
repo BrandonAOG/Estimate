@@ -2283,7 +2283,7 @@ function renderSavedList(){
         <div class="saved-meta">${opts} option${opts===1?'':'s'} &middot; up to ${money(total)} &middot; saved ${when}${apMeta}${viewMeta}</div>
       </div>
       <div class="saved-actions">
-        ${ap?`<button class="btn-ghost btn-sm" onclick="viewSignature('${r.id}')">View signature</button>`:''}
+        ${ap?`<button class="btn-ghost btn-sm" onclick="viewSignature('${r.id}')">View signature</button><button class="btn btn-sm" onclick="printSigned('${r.id}')">&#128424; Print signed</button>`:''}
         <button class="btn-amber btn-sm" onclick="openProposal('${r.id}')">Open</button>
         <button class="btn-danger btn-sm" onclick="deleteProposal('${r.id}')">Delete</button>
       </div>
@@ -2646,6 +2646,31 @@ function importData(e){
 }
 
 /* ================= PRINT ================= */
+// Print a signed/approved proposal straight from the Saved list — renders the same
+// full document the customer link shows (plus the approval + signature block) into
+// #printDoc and opens the print dialog. No new tab, no iframe.
+let printOverride=null;
+function printSigned(pid){
+  const r=savedCache.find(x=>x.id===pid);
+  const d=r&&r.data;
+  if(!d||!d.options){ toast('Not found'); return; }
+  const a=d.approval||{};
+  const pe=(d.estimator&&((d.estimator.name||'').trim()||(d.estimator.phone||'').trim()))?d.estimator:{name:'',phone:''};
+  let html=fullDocHtml(d,{online:false, showApprove:false, estName:(pe.name||'').trim(), estPhone:(pe.phone||'').trim()});
+  if(a.approved){
+    const when=a.at?new Date(a.at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
+    html+=`
+    <div style="margin-top:26px;padding-top:14px;border-top:2px solid #1a1a1a;break-inside:avoid;page-break-inside:avoid">
+      <div style="font-weight:800;font-size:12pt;color:#2e7d32;margin-bottom:6px">&#10003; APPROVED</div>
+      <div style="font-size:10.5pt"><b>${esc(a.name||'')}</b> approved <b>${esc(a.option||'this proposal')}</b>${when?' &middot; Signed '+esc(when):''}</div>
+      ${a.signature?`<img src="${a.signature}" alt="signature" style="max-width:340px;width:100%;display:block;margin-top:10px;border-bottom:1.5px solid #1a1a1a">`:''}
+      <div style="font-size:8.5pt;color:#555;margin-top:4px">Customer signature</div>
+    </div>`;
+  }
+  const nm=(r.customer||a.name||'').trim();
+  printOverride={ html, title:(nm?nm+' - ':'')+'Signed Proposal' };
+  window.print();
+}
 function buildPrintDoc(){
   readProjectMeta(); readDisc();
   // Prefer the estimator saved ON the proposal; local profile is only a fallback for unsaved work
@@ -2993,12 +3018,17 @@ function fullDocHtml(project, o2){
 }
 const APP_TITLE=document.title;
 window.addEventListener('beforeprint',()=>{
+  if(printOverride){
+    document.getElementById('printDoc').innerHTML=printOverride.html;
+    document.title=printOverride.title.replace(/[\\/:*?"<>|]/g,'');
+    return;
+  }
   buildPrintDoc();
   const nm=(project.customer||'').trim(), ad=(project.address||'').trim();
   const fname=[nm,ad].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]/g,'');
   if(fname) document.title=fname+' - Proposal';
 });
-window.addEventListener('afterprint',()=>{ document.title=APP_TITLE; });
+window.addEventListener('afterprint',()=>{ document.title=APP_TITLE; printOverride=null; });
 
 /* ================= GLUE ================= */
 let tT;function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),2500);}
