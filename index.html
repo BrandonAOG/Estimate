@@ -2279,7 +2279,7 @@ function renderSavedList(){
     return `<div class="saved-row">
       <input type="checkbox" class="sel-box" data-id="${esc(r.id)}" data-ap="${ap?1:0}" onchange="updateSelUI()" style="width:18px;height:18px;flex:0 0 auto;margin-right:2px;accent-color:#d84343">
       <div class="saved-main">
-        <div class="saved-name">${esc(r.customer|| (d.approval&&d.approval.name) || (d.decline&&d.decline.name) || '(no name)')}${r.number?' &middot; #'+esc(r.number):''}${badge}</div>
+        <div class="saved-name">${esc(r.customer|| (d.approval&&d.approval.name) || (d.decline&&d.decline.name) || '(no name)')}${(d.estimator&&(d.estimator.name||'').trim())?` <span style="font-weight:500;color:var(--ink-soft)">&mdash; Estimator: ${esc(d.estimator.name)}</span>`:''}${r.number?' &middot; #'+esc(r.number):''}${badge}</div>
         <div class="saved-meta">${opts} option${opts===1?'':'s'} &middot; up to ${money(total)} &middot; saved ${when}${apMeta}${viewMeta}</div>
       </div>
       <div class="saved-actions">
