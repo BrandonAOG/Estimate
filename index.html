@@ -679,6 +679,7 @@
         <input id="savedSearch" placeholder="Search by customer name or proposal #&hellip;" oninput="renderSavedList()" style="flex:1;min-width:160px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit">
         <select id="savedSort" onchange="renderSavedList()" style="padding:10px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)">
           <option value="new">Newest first</option>
+          <option value="staff">Recently opened (staff)</option>
           <option value="old">Oldest first</option>
           <option value="name">Last name A&ndash;Z</option>
           <option value="status">Approved first</option>
@@ -1140,7 +1141,7 @@ let catalog=[], project=null, sb=null, online=false, activeCat='All', activeOpt=
 const MAX_OPTIONS=5;
 const OPT_NAMES=['Option A','Option B','Option C','Option D','Option E'];
 function newOption(name){return {name:name||'Option A',recommended:false,lines:[],discounts:[{label:'Cash & check discount',type:'pct',val:0}],saveOverride:0};}
-function newProject(){return {id:'p'+rid(16),customer:'',address:'',number:'',date:today(),updated:Date.now(),showCompare:true,showDetail:true,featureRows:[],options:[newOption('Option A')]};}
+function newProject(){return {id:'p'+rid(16),customer:'',address:'',number:'',date:today(),created:Date.now(),updated:Date.now(),showCompare:true,showDetail:true,featureRows:[],options:[newOption('Option A')]};}
 function curOpt(){return project.options[activeOpt];}
 let cfg = load(K_CFG,{url:SUPABASE_URL,key:SUPABASE_KEY});
 function load(k,fb){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch(e){return fb;}}
@@ -2203,18 +2204,20 @@ function renderSavedList(){
   const lastName=r=>{const p=(r.customer||'').trim().split(/\s+/);return (p[p.length-1]||'').toLowerCase();};
   const st=r=>{const d=r.data||{};return d.approval&&d.approval.approved?0:(d.decline&&d.decline.declined?2:1);};
   const mode=(document.getElementById('savedSort')||{}).value||'new';
+  const cAt=r=>{ const d=r.data||{}; return d.created ? new Date(d.created) : new Date(r.updated||0); };
   rows.sort((a,b)=>{
-    if(mode==='old')  return new Date(a.updated||0)-new Date(b.updated||0);
+    if(mode==='old')  return cAt(a)-cAt(b);
     if(mode==='name') return lastName(a).localeCompare(lastName(b))||(a.customer||'').localeCompare(b.customer||'');
-    if(mode==='status') return st(a)-st(b)||new Date(b.updated||0)-new Date(a.updated||0);
-    return new Date(b.updated||0)-new Date(a.updated||0); // newest first (default)
+    if(mode==='staff'){ const so=r=>((r.data||{}).staffOpened)||0; return so(b)-so(a); }
+    if(mode==='status') return st(a)-st(b)||cAt(b)-cAt(a);
+    return cAt(b)-cAt(a); // newest first = by creation date
   });
   const list=document.getElementById('savedList');
   if(!rows.length){ list.innerHTML='<div class="saved-empty">No saved proposals'+(q?' match your search':' yet')+'.</div>'; return; }
   list.innerHTML=rows.map(r=>{
     const d=r.data||{};
     const opts=(d.options||[]).length;
-    const when=r.updated?new Date(r.updated).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+    const when=(function(){ const t=cAt(r); return t.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); })();
     let total=0;
     (d.options||[]).forEach(o=>{ try{ total=Math.max(total, optTotals(o).total); }catch(e){ total=Math.max(total,(o.lines||[]).reduce((x,l)=>x+l.price*l.qty,0)); } });
     const ap=d.approval&&d.approval.approved;
@@ -2266,7 +2269,9 @@ async function openProposal(pid){
   await cloudSaveNow(); // save whatever we were on — fully, before swapping
   project = r.data && r.data.options ? r.data : newProject();
   if(!project.id) project.id=pid;
-  activeOpt=0; lput(K_QUOTE,project);
+  project.staffOpened=Date.now();                 // staff view (not the homeowner's link views)
+  if(r.data) r.data.staffOpened=project.staffOpened; // reflect in the list immediately
+  activeOpt=0; lput(K_QUOTE,project); scheduleCloudSave();
   fillProjectMeta(); fillEstimator(); renderOptTabs(); renderQuote();
   closeSaved(); toast('Opened '+(project.customer||'proposal'));
 }
