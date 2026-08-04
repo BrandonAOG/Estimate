@@ -1901,6 +1901,13 @@ function copyShareLink(){
 
 /* ================= CUSTOMER APPROVAL VIEW ================= */
 let AV={proposal:null,selected:0,sigDrawn:false};
+function _avAutoPrint(){
+  try{
+    if(new URLSearchParams(location.search).get('print')!=='1') return;
+    document.querySelectorAll('#approveView details').forEach(d=>d.open=true); // expand "View your full proposal"
+    setTimeout(()=>{ window.print(); }, 500);
+  }catch(e){}
+}
 async function initApprovalView(pid){
   document.body.classList.add('approve-mode');
   const host=document.getElementById('approveView');
@@ -1923,7 +1930,7 @@ async function initApprovalView(pid){
     if(!AV.proposal){ throw new Error('empty'); }
     // if already approved, show confirmation
     if(AV.proposal.approval && AV.proposal.approval.approved){
-      renderApprovedConfirmation(AV.proposal); return;
+      renderApprovedConfirmation(AV.proposal); _avAutoPrint(); return;
     }
     if(AV.proposal.decline && AV.proposal.decline.declined){
       renderDeclinedConfirmation(AV.proposal); return;
@@ -1993,7 +2000,7 @@ function renderApprovalView(pid){
         </div>
       </div>
     </div>`;
-  renderAvDoc();
+  renderAvDoc(); _avAutoPrint();
   setupSigpad();
 }
 function selectAvOpt(i){
@@ -2292,13 +2299,10 @@ function renderSavedList(){
   updateSelUI();
 }
 function printSigned(pid){
-  const r=savedCache.find(x=>x.id===pid); if(!r||!r.data){ toast('Not found'); return; }
-  const p=r.data;
-  const pe=(p.estimator&&((p.estimator.name||'').trim()||(p.estimator.phone||'').trim()))?p.estimator:estimator();
-  document.getElementById('printDoc').innerHTML=fullDocHtml(p,{online:false,showApprove:false,
-    estName:(pe.name||'').trim(), estPhone:(pe.phone||'').trim()});
+  // Open the customer's actual approval page with auto-print, so what prints is EXACTLY what they signed.
+  const base=location.origin+location.pathname;
+  window.open(base+'?approve='+encodeURIComponent(pid)+'&print=1','_blank');
   closeSaved();
-  setTimeout(()=>{ window.print(); }, 60);
 }
 function viewSignature(pid){
   const r=savedCache.find(x=>x.id===pid);
@@ -3014,6 +3018,7 @@ function fullDocHtml(project, o2){
 }
 const APP_TITLE=document.title;
 window.addEventListener('beforeprint',()=>{
+  if(document.body.classList.contains('approve-mode')) return; // customer page prints itself as-is
   buildPrintDoc();
   const nm=(project.customer||'').trim(), ad=(project.address||'').trim();
   const fname=[nm,ad].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]/g,'');
