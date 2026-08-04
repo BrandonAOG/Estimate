@@ -530,6 +530,7 @@
       <button class="btn-amber btn-sm" onclick="saveProposalNamed()" style="display:none">&#128190; Save proposal</button>
       <button class="btn-amber btn-sm" onclick="openItemModal()">+ Add item</button>
       <button class="btn btn-sm" onclick="openTemplates()">&#9889; Templates</button>
+      <button class="btn btn-sm" onclick="openHelp()" title="How everything works">?</button>
     </div>
   </div>
 </header>
@@ -650,6 +651,48 @@
       <button class="btn-ghost" onclick="closeConnect()">Cancel</button>
       <button class="btn-amber" onclick="saveConnect()">Save &amp; go online</button>
     </div>
+  </div>
+</div>
+<div class="overlay" id="helpModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-head">How the Quote Builder works</div>
+    <div class="modal-body" style="max-height:65vh;overflow:auto;font-size:14px;line-height:1.5">
+      <style>#helpModal details{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;padding:0}
+        #helpModal summary{cursor:pointer;font-weight:700;padding:11px 14px;list-style:none}
+        #helpModal summary::before{content:'\25B8  ';color:var(--amber-deep)}
+        #helpModal details[open] summary::before{content:'\25BE  '}
+        #helpModal .hb{padding:0 14px 12px;color:#444}
+        #helpModal .hb b{color:var(--ink)}</style>
+
+      <details open><summary>Build a quote</summary><div class="hb">
+        <b>Click any catalog item</b> on the left to add it to the option you're on — click again for &times;2, &times;3. Use the <b>checkboxes</b> to select several (even across different searches), then <b>Add to quote</b> adds them all at once. Edit any line's name, description, price, model, or per-item discount right on the line — changes only affect this proposal, never the catalog. Drag the <b>&#8942;&#8942; handle</b> to reorder lines. The <b>&#8646;</b> button (or dragging a catalog item onto a line) <b>replaces</b> that line while keeping its spot, quantity, and discount.</div></details>
+
+      <details><summary>Options A &amp; B</summary><div class="hb">
+        <b>+ Add option</b> creates a second estimate (e.g. 22KW vs 24KW). <b>Duplicate</b> copies the current option's items to a new one — then swap the generator with &#8646;. <b>&#9733; Recommend</b> stars an option: it gets the cream column, the &#9733; header, and the smart recommendation sentence (price difference, bigger generator, and days of backup runtime when tanks differ).</div></details>
+
+      <details><summary>Discounts &amp; savings</summary><div class="hb">
+        Under the totals: <b>+ Add discount</b> for as many named discounts as needed ($ or %). The checkbox on later discounts controls whether a % stacks on the running balance or calculates from the subtotal. <b>Savings shown</b> — leave blank for automatic (sum of discounts) or type the exact savings number to print. Each line item can also carry its own named discount (shows crossed-out pricing on the proposal).</div></details>
+
+      <details><summary>&#9889; Templates</summary><div class="hb">
+        Save any option as a team-wide template: <b>&#9889; Save as template</b> in the option row (name is suggested), or the <b>&#9889; Templates</b> button up top. Apply one as a <b>New proposal</b> or <b>Insert here</b> into the current option. Search, filter by category, rename/re-categorize with &#9998;. Limit 25 — delete old ones with &times;.</div></details>
+
+      <details><summary>The printed proposal</summary><div class="hb">
+        <b>Print proposal</b> uses the template: hero, yellow banner, side-by-side comparison table (shows even with one option), per-option detail, and the <b>Your Investment</b> box. Check <b>Background graphics</b> in the print dialog so the banner and colors print. The comparison table auto-fills the model row, merges same-city Electrical + Gas permits into one line, and adds the Whole-home power row. Add custom rows under <b>Comparison feature rows</b>. Toggles: hide the comparison table or the itemized detail (the investment box always prints).</div></details>
+
+      <details><summary>Share for approval</summary><div class="hb">
+        <b>&#128279; Share for approval</b> creates the customer link (text or email it). The homeowner sees the full proposal, picks an option, signs, and approves — or declines with a reason. <b>Viewed N&times;</b> in Saved proposals counts <i>homeowner</i> opens only; your own previews don't count. Once approved, the signature is locked and protected.</div></details>
+
+      <details><summary>Saved proposals</summary><div class="hb">
+        Everything auto-saves to the team cloud once it has a name or items — there's no Save button to forget. Sort by <b>Newest first</b> (creation date), <b>Recently opened (staff)</b>, status, or oldest. Search by customer or proposal #. Deleting asks you to type <b>Alwayson1</b>; deleting the proposal you're on starts a fresh blank automatically. <b>Export backup</b> downloads everything as a file.</div></details>
+
+      <details><summary>Your profile &amp; estimator name</summary><div class="hb">
+        Click your <b>initials</b> in the header to set your name and phone — they follow your login on any device and auto-fill new proposals. Each proposal keeps its <b>original estimator's</b> name and phone even when a teammate opens it; typing in the Estimator fields is the only way to change it. Sign out is behind the same chip.</div></details>
+
+      <details><summary>Catalog housekeeping</summary><div class="hb">
+        <b>+ Add item</b> or &#9998; on any item edits the master price book (affects everyone). Category field: click it to see all categories; type to create a new one. Use checkboxes + <b>Move to category</b> to re-file many items at once. Deleting a catalog item removes it for the whole team, so it asks you to type <b>Generator1</b> to confirm. Sort by name, brand, or price; the count dropdown controls how many show per page. Changing a generator's size in a quote auto-updates its model from the catalog.</div></details>
+
+    </div>
+    <div class="modal-foot"><button class="btn-ghost" onclick="closeHelp()">Close</button></div>
   </div>
 </div>
 <div class="overlay" id="tplModal">
@@ -1435,6 +1478,8 @@ async function loadTemplates(){
   try{ const {data}=await sb.from('templates').select('*').order('name');
     if(data){ templates=data.map(r=>({id:r.id,name:r.name,cat:r.cat||'',data:r.data})); lput(K_TPL,templates); } }catch(e){}
 }
+function openHelp(){ document.getElementById('helpModal').classList.add('on'); }
+function closeHelp(){ document.getElementById('helpModal').classList.remove('on'); }
 function openTemplates(){ document.getElementById('tplModal').classList.add('on'); loadTemplates().then(renderTplList); renderTplList(); }
 function openTemplatesToSave(){
   openTemplates();
@@ -2968,9 +3013,10 @@ backdropClose('itemModal', closeItemModal);
 backdropClose('connectModal', closeConnect);
 backdropClose('savedModal', closeSaved);
 backdropClose('shareModal', closeShare);
+backdropClose('helpModal', closeHelp);
 backdropClose('tplModal', closeTemplates);
 backdropClose('sigModal', ()=>document.getElementById('sigModal').classList.remove('on'));
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();closeShare();closeTemplates();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeItemModal();closeConnect();closeSaved();closeShare();closeTemplates();closeHelp();}});
 document.querySelectorAll(".brandlogo").forEach(i=>i.src=LOGO);
 // The footer version is whatever the live SERVICE WORKER reports - the SW is the
 // single source of truth for this app's version. No hardcoded HTML version is shown.
