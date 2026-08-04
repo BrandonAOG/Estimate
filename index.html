@@ -2669,7 +2669,17 @@ function printSigned(pid){
   }
   const nm=(r.customer||a.name||'').trim();
   printOverride={ html, title:(nm?nm+' - ':'')+'Signed Proposal' };
-  window.print();
+  // Render NOW and wait for the signature image (and any other images) to finish
+  // loading before opening the print dialog — otherwise the first print can come
+  // out without the signature.
+  const pd=document.getElementById('printDoc');
+  pd.innerHTML=html;
+  const imgs=Array.from(pd.querySelectorAll('img'));
+  const waits=imgs.map(img=>{
+    if(img.complete&&img.naturalWidth>0) return (img.decode?img.decode().catch(()=>{}):Promise.resolve());
+    return new Promise(res=>{ img.onload=()=>res(); img.onerror=()=>res(); setTimeout(res,2000); });
+  });
+  Promise.all(waits).then(()=>{ requestAnimationFrame(()=>{ window.print(); }); });
 }
 function buildPrintDoc(){
   readProjectMeta(); readDisc();
@@ -3019,7 +3029,7 @@ function fullDocHtml(project, o2){
 const APP_TITLE=document.title;
 window.addEventListener('beforeprint',()=>{
   if(printOverride){
-    document.getElementById('printDoc').innerHTML=printOverride.html;
+    // #printDoc was already rendered (and images pre-loaded) by printSigned()
     document.title=printOverride.title.replace(/[\\/:*?"<>|]/g,'');
     return;
   }
