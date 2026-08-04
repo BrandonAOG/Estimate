@@ -298,7 +298,7 @@
   .hint{font-size:12.5px;color:var(--ink-soft);line-height:1.6;background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px;margin-bottom:14px}
   .hint b{color:var(--ink)} .hint ol{margin:8px 0 0;padding-left:18px}
   .hint code{background:#fff;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
-  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transition:.25s;z-index:60;pointer-events:none}
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--amber);color:#1a1a1a;padding:15px 26px;border-radius:12px;font-size:16px;font-weight:700;box-shadow:0 6px 24px rgba(0,0,0,.25);opacity:0;transition:.25s;z-index:60;pointer-events:none;max-width:85vw;text-align:center}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
   #printDoc{display:none}
   .line-wrap{position:relative}
@@ -1357,7 +1357,6 @@ function renderCatalog(){
       </div>
       <div class="item-price">${money(it.price)}</div>
       <div class="item-tools">
-        <button class="icon-btn" title="Add to quote" onclick="addLine('${it.id}')">+</button>
         <button class="icon-btn" title="Edit" onclick="openItemModal('${it.id}')">&#9998;</button>
         <button class="icon-btn" title="Delete" onclick="deleteItem('${it.id}')">&#128465;</button>
       </div>
@@ -1544,7 +1543,9 @@ function addLine(itemId){
   const o=curOpt();
   const ex=o.lines.find(l=>l.itemId===itemId);
   if(ex)ex.qty++;else o.lines.push({itemId,name:it.name,desc:it.desc,model:it.model||'',price:it.price,qty:1});
-  saveProject();renderQuote();toast(it.name+' \u2192 '+(o.name||'option'));
+  saveProject();renderQuote();
+  const q=ex?(' \u00d7'+ex.qty):'';
+  toast(it.name+q+' \u2192 '+(o.name||'option'));
 }
 let _dragEl=null;
 function moveLine(from,to){
