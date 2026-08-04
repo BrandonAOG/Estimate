@@ -2950,7 +2950,7 @@ window.addEventListener('beforeprint',()=>{
 window.addEventListener('afterprint',()=>{ document.title=APP_TITLE; });
 
 /* ================= GLUE ================= */
-let tT;function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),1600);}
+let tT;function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),2500);}
 // Close on outside click ONLY if the press STARTED on the backdrop too.
 // (Selecting text inside the popup and releasing outside must not close it.)
 function backdropClose(id, closeFn){
