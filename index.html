@@ -343,7 +343,13 @@
     #printDoc{display:block!important}
     @page{size:letter;margin:0.6in 0.65in}
     body{background:#fff}
+    /* Signed-proposal print: let content flow (no forced page breaks) */
+    body.print-signed #printDoc *{break-before:auto!important;page-break-before:auto!important;break-after:auto!important;page-break-after:auto!important}
+    body.print-signed #printWm{display:flex!important}
   }
+  /* Repeating watermark — position:fixed prints on EVERY page */
+  #printWm{display:none;position:fixed;inset:0;z-index:2147483647;pointer-events:none;align-items:center;justify-content:center;overflow:hidden}
+  #printWm span{transform:rotate(-30deg);font-size:24pt;font-weight:800;letter-spacing:1px;color:rgba(26,26,26,.08);text-align:center;line-height:1.5;white-space:pre-line;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   #printDoc, .av-doc{color:#1a1a1a;font-family:'Calibri','Segoe UI',Helvetica,Arial,sans-serif;font-size:11pt}
   .av-fulldoc .p-why{break-before:auto!important;page-break-before:auto!important;margin-top:18px;padding-top:0}
   .p-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #ddd;padding-bottom:12px;margin-bottom:16px}
@@ -829,6 +835,7 @@
 <datalist id="featVals"><option value="Yes"><option value="Included"><option value="More headroom"><option value="Standard"><option value="&mdash;"></datalist>
 <div class="toast" id="toast"></div>
 <div id="printDoc"></div>
+<div id="printWm" aria-hidden="true"><span id="printWmText"></span></div>
 
 <!-- Customer-facing approval view (shown only when ?approve=ID is in the URL) -->
 <div id="approveView"></div>
@@ -2669,6 +2676,11 @@ function printSigned(pid){
   }
   const nm=(r.customer||a.name||'').trim();
   printOverride={ html, title:(nm?nm+' - ':'')+'Signed Proposal' };
+  // Watermark: homeowner name + address, repeats on every printed page.
+  // Also flips on the "print-signed" mode that removes forced page breaks.
+  const addr=(d.address||'').trim();
+  document.getElementById('printWmText').textContent=[nm,addr].filter(Boolean).join('\n')||'Signed Proposal';
+  document.body.classList.add('print-signed');
   // Render NOW and wait for the signature image (and any other images) to finish
   // loading before opening the print dialog — otherwise the first print can come
   // out without the signature.
@@ -3038,7 +3050,7 @@ window.addEventListener('beforeprint',()=>{
   const fname=[nm,ad].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]/g,'');
   if(fname) document.title=fname+' - Proposal';
 });
-window.addEventListener('afterprint',()=>{ document.title=APP_TITLE; printOverride=null; });
+window.addEventListener('afterprint',()=>{ document.title=APP_TITLE; printOverride=null; document.body.classList.remove('print-signed'); });
 
 /* ================= GLUE ================= */
 let tT;function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),2500);}
