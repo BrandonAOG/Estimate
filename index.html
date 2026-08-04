@@ -1901,13 +1901,6 @@ function copyShareLink(){
 
 /* ================= CUSTOMER APPROVAL VIEW ================= */
 let AV={proposal:null,selected:0,sigDrawn:false};
-function _avAutoPrint(){
-  try{
-    if(new URLSearchParams(location.search).get('print')!=='1') return;
-    document.querySelectorAll('#approveView details').forEach(d=>d.open=true); // expand "View your full proposal"
-    setTimeout(()=>{ window.print(); }, 500);
-  }catch(e){}
-}
 async function initApprovalView(pid){
   document.body.classList.add('approve-mode');
   const host=document.getElementById('approveView');
@@ -1930,7 +1923,7 @@ async function initApprovalView(pid){
     if(!AV.proposal){ throw new Error('empty'); }
     // if already approved, show confirmation
     if(AV.proposal.approval && AV.proposal.approval.approved){
-      renderApprovedConfirmation(AV.proposal); _avAutoPrint(); return;
+      renderApprovedConfirmation(AV.proposal); return;
     }
     if(AV.proposal.decline && AV.proposal.decline.declined){
       renderDeclinedConfirmation(AV.proposal); return;
@@ -2000,7 +1993,7 @@ function renderApprovalView(pid){
         </div>
       </div>
     </div>`;
-  renderAvDoc(); _avAutoPrint();
+  renderAvDoc();
   setupSigpad();
 }
 function selectAvOpt(i){
@@ -2290,19 +2283,13 @@ function renderSavedList(){
         <div class="saved-meta">${opts} option${opts===1?'':'s'} &middot; up to ${money(total)} &middot; saved ${when}${apMeta}${viewMeta}</div>
       </div>
       <div class="saved-actions">
-        ${ap?`<button class="btn-ghost btn-sm" onclick="viewSignature('${r.id}')">View signature</button><button class="btn btn-sm" onclick="printSigned('${r.id}')" title="Print the full signed estimate">&#128424; Print signed</button>`:''}
+        ${ap?`<button class="btn-ghost btn-sm" onclick="viewSignature('${r.id}')">View signature</button>`:''}
         <button class="btn-amber btn-sm" onclick="openProposal('${r.id}')">Open</button>
         <button class="btn-danger btn-sm" onclick="deleteProposal('${r.id}')">Delete</button>
       </div>
     </div>`;
   }).join('');
   updateSelUI();
-}
-function printSigned(pid){
-  // Open the customer's actual approval page with auto-print, so what prints is EXACTLY what they signed.
-  const base=location.origin+location.pathname;
-  window.open(base+'?approve='+encodeURIComponent(pid)+'&print=1','_blank');
-  closeSaved();
 }
 function viewSignature(pid){
   const r=savedCache.find(x=>x.id===pid);
@@ -2990,18 +2977,6 @@ function fullDocHtml(project, o2){
       <h4 style="margin-top:12px">HOA approval</h4>
       Where an HOA approval is required, obtaining it is the homeowner's responsibility. We'll gladly provide any specifications, drawings, or documentation your HOA requests.
     </div>
-    ${(project.approval&&project.approval.approved)?`
-    <div class="p-signed" style="margin-top:22px;border:2px solid #3b7d23;border-radius:12px;padding:16px 18px;page-break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#f6faf2">
-      <div style="font-size:13pt;font-weight:800;color:#3b7d23;margin-bottom:8px">&#10003; Approved &amp; signed</div>
-      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end">
-        <div style="flex:1;min-width:200px">
-          <div style="font-size:10pt;color:#555">Accepted option: <b style="color:#1a1a1a">${esc(project.approval.option||'')}</b></div>
-          <div style="font-size:10pt;color:#555;margin-top:2px">Signed by: <b style="color:#1a1a1a">${esc(project.approval.name||'')}</b></div>
-          <div style="font-size:10pt;color:#555;margin-top:2px">Date: <b style="color:#1a1a1a">${project.approval.at?new Date(project.approval.at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):''}</b></div>
-        </div>
-        ${project.approval.signature?`<div style="text-align:center"><img src="${project.approval.signature}" alt="Signature" style="max-width:260px;max-height:90px;border-bottom:2px solid #1a1a1a"><div style="font-size:8pt;color:#777;margin-top:2px">Customer signature</div></div>`:''}
-      </div>
-    </div>`:''}
     <div class="p-foot">
       <div class="big">Ready to keep your home always on?</div>
       <div class="sm">${callLine}</div>
@@ -3018,7 +2993,6 @@ function fullDocHtml(project, o2){
 }
 const APP_TITLE=document.title;
 window.addEventListener('beforeprint',()=>{
-  if(document.body.classList.contains('approve-mode')) return; // customer page prints itself as-is
   buildPrintDoc();
   const nm=(project.customer||'').trim(), ad=(project.address||'').trim();
   const fname=[nm,ad].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]/g,'');
